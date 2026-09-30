@@ -13,6 +13,7 @@ Read README.md first; it is the user-facing contract.
 - `extension/page.js`: runs in the page (`world: MAIN`), wraps fetch/XHR, catches console errors.
 - `extension/content.js`: names clicks and field changes, relays page.js messages.
 - `extension/redact.js`: body redaction (keys and card numbers). `test/redact.test.js` covers it.
+- `pyproject.toml`: pip/pipx install; ships `dashhound` as a script and `extension/` as data (`share/dashhound`).
 - `dashhound`: native host + CLI (`log`, `shots`, `install`, `pack`, `mcp`, `selftest`). Python 3.8+, stdlib only.
 
 ## Rules
@@ -25,7 +26,7 @@ Read README.md first; it is the user-facing contract.
 - **README stays true.** A change to what is recorded, a setting, a command or a limit updates README in the same PR.
 - **Comments:** a short doc comment on functions whose purpose is not obvious; no line-by-line narration.
 - Don't bump versions in feature or fix PRs (parallel PRs would all conflict on it). A release commit bumps
-  `version` in `extension/manifest.json` and `VERSION` in `dashhound` together.
+  `version` in `extension/manifest.json`, `VERSION` in `dashhound` and `version` in `pyproject.toml` together.
 - Keep PRs to one issue each, and say in the PR how you checked it (which of the checks below, and anything manual).
 
 ## Checks (all must pass)
