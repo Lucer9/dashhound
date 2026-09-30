@@ -24,7 +24,7 @@ import tempfile
 import time
 import zipfile
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 EXT_ID = "dashhound@dashhound"
 HERE = os.path.dirname(os.path.realpath(__file__))
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "dashhound")
