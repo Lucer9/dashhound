@@ -63,26 +63,50 @@ function dogArt(coat, colors) {
   return { letters: base.letters, palette, states: base.states };
 }
 
-/** The dog as ImageData at `size` px (whole-pixel scaling); state is 'icon' or 'recording'. */
-function dogImage(coat, colors, state, size) {
+/** Source index for each of `size` target pixels over `n` source pixels; the extra pixels go to the outermost first. */
+function spread(n, size) {
+  const widths = Array(n).fill(Math.floor(size / n));
+  const order = [...Array(n).keys()].sort((a, b) => Math.abs(b - (n - 1) / 2) - Math.abs(a - (n - 1) / 2));
+  const extra = size - widths[0] * n;
+  for (let i = 0; i < extra; i++) widths[order[i % n]]++;
+  return widths.flatMap((w, i) => Array(w).fill(i));
+}
+
+/**
+ * The dog as ImageData at `size` px; state is 'icon' or 'recording'. Whole-pixel scaling by default. With `fill`
+ * (the toolbar icon) the empty margin and the outline-only side columns are trimmed and the rest is stretched to fill
+ * the square, the extra pixels going to the outer ears/head/chin so the eyes and snout stay even.
+ */
+function dogImage(coat, colors, state, size, fill) {
   const art = dogArt(coat, colors);
-  const frame = art.states[state][0];
-  const k = Math.max(1, Math.floor(size / frame.length));
+  let frame = art.states[state][0];
+  if (fill) {
+    const blank = (s) => /^[.]*$/.test(s);
+    frame = frame.filter((r) => !blank(r));
+    const cols = (x) => frame.map((r) => r[x]).join('');
+    while (frame[0].length > 1 && /^[.k]*$/.test(cols(0))) frame = frame.map((r) => r.slice(1));
+    while (frame[0].length > 1 && /^[.k]*$/.test(cols(frame[0].length - 1))) frame = frame.map((r) => r.slice(0, -1));
+    const n = Math.max(frame.length, frame[0].length);
+    const top = Math.floor((n - frame.length) / 2), left = Math.floor((n - frame[0].length) / 2);
+    frame = [...Array(n)].map((_, y) => [...Array(n)].map((__, x) => (frame[y - top] || '')[x - left] || '.').join(''));
+  }
+  const n = frame.length;
+  const map = fill ? spread(n, size) : [...Array(size).keys()].map((t) => (t < n * Math.max(1, Math.floor(size / n)) ? Math.floor(t / Math.max(1, Math.floor(size / n))) : -1));
+  const rgb = art.palette.map((hex) => [1, 3, 5].map((o) => parseInt(hex.slice(o, o + 2), 16)));
   const px = new Uint8ClampedArray(size * size * 4);
-  frame.forEach((row, y) => [...row].forEach((ch, x) => {
-    const i = art.letters.indexOf(ch);
-    if (i < 0) return;
-    const hex = art.palette[i];
-    const rgb = [1, 3, 5].map((o) => parseInt(hex.slice(o, o + 2), 16));
-    for (let dy = 0; dy < k; dy++) for (let dx = 0; dx < k; dx++) {
-      const p = ((y * k + dy) * size + (x * k + dx)) * 4;
-      px.set([...rgb, 255], p);
+  for (let ty = 0; ty < size; ty++) {
+    const sy = map[ty];
+    if (sy < 0) continue;
+    for (let tx = 0; tx < size; tx++) {
+      const sx = map[tx];
+      const i = sx < 0 ? -1 : art.letters.indexOf(frame[sy][sx]);
+      if (i >= 0) px.set([...rgb[i], 255], (ty * size + tx) * 4);
     }
-  }));
+  }
   return new ImageData(px, size, size);
 }
 
-if (typeof module !== 'undefined') module.exports = { DOG, dogArt, dogImage };
+if (typeof module !== 'undefined') module.exports = { DOG, dogArt, dogImage, spread };
 """
 
 
