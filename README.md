@@ -1,9 +1,12 @@
 # dashhound
 
-**A dashcam for your dev browser.** Named for dogfooding (and for a dog): the hound that rides along while you use
-your own app. dashhound quietly keeps a local log of what you did on the sites you choose
-(pages, clicks, field changes, API calls, errors) and takes a screenshot when something worth seeing happens.
-When something breaks, you, or your coding agent, can look back instead of trying to reproduce it.
+**A dashcam for your dev browser.** Named for dogfooding (and for a dog).
+
+You're using your own app and something breaks. You try again and it works fine. You weren't screen recording, the
+reload cleared the console, and localhost has no Datadog to point at it. dashhound is the dashcam that was already
+rolling: a local log of what happened on the sites you choose (pages, clicks, what you typed, API calls with what
+they sent and got back, errors) and a screenshot when something goes wrong. When the bug shows up, you, or your coding
+agent, look back instead of trying to reproduce it.
 
 The story behind it, and Dash the pixel hound: [carlosaguirre.workers.dev/work/dashhound](https://www.carlosaguirre.workers.dev/work/dashhound/)
 
