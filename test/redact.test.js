@@ -1,6 +1,6 @@
 // Run: node test/redact.test.js
 const assert = require('assert');
-const { redact } = require('../extension/redact.js');
+const { redact, compileKeys } = require('../extension/redact.js');
 
 assert.strictEqual(redact('{"email":"a@b.c","password":"hunter2"}'), '{"email":"a@b.c","password":"[private]"}');
 assert.strictEqual(redact('{"user":{"accessToken":"x","name":"n"},"items":[{"apiKey":"k"}]}'), '{"user":{"accessToken":"[private]","name":"n"},"items":[{"apiKey":"[private]"}]}');
@@ -14,4 +14,9 @@ assert.strictEqual(redact('{"at":"1790781926346"}'), '{"at":"1790781926346"}', '
 assert.strictEqual(redact('abcdef', 3), 'abc…[3 more chars]');
 assert.strictEqual(redact(''), '');
 assert.strictEqual(redact(undefined), undefined);
+const extra = compileKeys('PIN\n/^ssn_/\n/(/\n');
+assert.strictEqual(redact('{"pin":"1234","a":{"Pin":"1"},"shipping":"x"}', 999, extra), '{"pin":"[private]","a":{"Pin":"[private]"},"shipping":"x"}', 'plain word');
+assert.strictEqual(redact('{"ssn_last4":"1234","id":7}', 999, extra), '{"ssn_last4":"[private]","id":7}', 'regex');
+assert.strictEqual(redact('pin=1&ssn_last4=2&n=3', 999, extra), 'pin=[private]&ssn_last4=[private]&n=3', 'form body');
+assert.strictEqual(redact('{"password":"x","pin":"1"}', 999, extra), '{"password":"[private]","pin":"[private]"}', 'built-in keys still apply');
 console.log('redact ok');
