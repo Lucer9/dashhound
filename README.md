@@ -63,7 +63,7 @@ Then open the extension's settings to choose which sites to record.
 ```sh
 ./tabcam log                       # last hour
 ./tabcam log --since 10m --kind click,net,console
-./tabcam log --grep "credit memo" --since 2h
+./tabcam log --grep checkout --since 2h
 ./tabcam log --json                # raw events
 ./tabcam shots                     # screenshots with their reason
 ```
