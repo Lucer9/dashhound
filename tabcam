@@ -1,0 +1,313 @@
+#!/usr/bin/env python3
+"""tabcam: a dashcam for your dev browser.
+
+The browser extension records what you do on the sites you choose (pages, clicks, field changes, API calls,
+errors, and a screenshot when something worth seeing happens). This one file is everything else:
+
+  tabcam log [--since 30m] [--grep text] [--kind click,net]   read the timeline
+  tabcam shots [--since 1h]                                     list screenshots
+  tabcam mcp                                                    MCP server (stdio) so coding agents can read it
+  tabcam install [--chrome-id ID]                               register the native host with Firefox / Chrome
+  tabcam pack                                                   zip the extension for Firefox (dist/tabcam.xpi)
+  tabcam selftest                                               check writer, reader and MCP server
+
+When a browser starts it (native messaging), it is the host: it appends events to one JSON Lines file per hour
+under the data directory and deletes anything older than the configured hours. Nothing leaves the machine.
+"""
+import argparse
+import base64
+import json
+import os
+import struct
+import sys
+import tempfile
+import time
+import zipfile
+
+VERSION = "0.1.0"
+EXT_ID = "tabcam@tabcam"
+HERE = os.path.dirname(os.path.realpath(__file__))
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "tabcam")
+UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+
+
+def shots_dir():
+    return os.path.join(DATA, "shots")
+
+
+def write(msg, state):
+    """Host side: stores one message from the extension (event, screenshot or config) and prunes old files."""
+    if "config" in msg:
+        state["keep_hours"] = max(1, int(msg["config"].get("keepHours") or 24))
+        return
+    os.makedirs(shots_dir(), exist_ok=True)
+    ev = msg.get("event")
+    if "shot" in msg:
+        s = msg["shot"]
+        name = time.strftime("%Y%m%d-%H%M%S", time.localtime(s["ts"] / 1000)) + f"-{s['tab']}.jpg"
+        path = os.path.join(shots_dir(), name)
+        with open(path, "wb") as f:
+            f.write(base64.b64decode(s["dataUrl"].split(",", 1)[1]))
+        ev = {k: v for k, v in s.items() if k != "dataUrl"}
+        ev.update(kind="shot", file=path)
+    if not ev:
+        return
+    with open(os.path.join(DATA, time.strftime("%Y-%m-%d-%H") + ".jsonl"), "a") as f:
+        f.write(json.dumps(ev) + "\n")
+    if time.time() - state.get("pruned", 0) > 600:
+        state["pruned"] = time.time()
+        prune(state.get("keep_hours", 24))
+
+
+def prune(keep_hours):
+    cutoff = time.time() - keep_hours * 3600
+    for d in (DATA, shots_dir()):
+        if not os.path.isdir(d):
+            continue
+        for name in os.listdir(d):
+            full = os.path.join(d, name)
+            if os.path.isfile(full) and os.path.getmtime(full) < cutoff:
+                os.unlink(full)
+
+
+def host():
+    """Native messaging loop: length-prefixed JSON on stdin until the browser closes the pipe."""
+    state = {}
+    while True:
+        head = sys.stdin.buffer.read(4)
+        if len(head) < 4:
+            return
+        msg = json.loads(sys.stdin.buffer.read(struct.unpack("@I", head)[0]))
+        try:
+            write(msg, state)
+        except (OSError, ValueError, KeyError):
+            pass
+
+
+def since_ts(text):
+    """'90s', '30m', '2h', '1d' -> epoch seconds that long ago."""
+    text = text.strip()
+    n, unit = (text[:-1], text[-1]) if text[-1] in UNITS else (text, "m")
+    return time.time() - float(n) * UNITS[unit]
+
+
+def events(since="1h", grep=None, kinds=None):
+    """Events newer than `since`, oldest first, optionally filtered by kind and by text in their line."""
+    start = since_ts(since)
+    out = []
+    if not os.path.isdir(DATA):
+        return out
+    for name in sorted(os.listdir(DATA)):
+        full = os.path.join(DATA, name)
+        if not name.endswith(".jsonl") or os.path.getmtime(full) < start:
+            continue
+        with open(full) as f:
+            for line in f:
+                try:
+                    e = json.loads(line)
+                except ValueError:
+                    continue
+                if e.get("ts", 0) / 1000 >= start and (not kinds or e.get("kind") in kinds):
+                    out.append(e)
+    out.sort(key=lambda e: e["ts"])
+    return [e for e in out if not grep or grep.lower() in line_of(e).lower()]
+
+
+def line_of(e):
+    """One event as a line a person (or an agent) can read."""
+    k = e.get("kind")
+    if k == "page":
+        what = f"{e.get('url')}  {e.get('title') or ''}".rstrip()
+    elif k == "click":
+        what = f"{e.get('text')!r}" + (f" ({e['tag']})" if e.get("tag") else "") + f" on {e.get('path')}"
+    elif k == "field":
+        what = f"{e.get('name')} = {e.get('value')!r} on {e.get('path')}"
+    elif k == "submit":
+        what = f"form {e.get('text')} on {e.get('path')}"
+    elif k == "net":
+        what = f"{e.get('method')} {e.get('status') or e.get('error')} {e.get('url')}"
+    elif k == "console":
+        what = f"{e.get('level')}: {e.get('text')}"
+    elif k == "shot":
+        what = f"{e.get('reason')} -> {e.get('file')}"
+    else:
+        what = json.dumps(e)
+    return f"{time.strftime('%H:%M:%S', time.localtime(e['ts'] / 1000))} tab {e.get('tab')} {k:<7} {what}"
+
+
+def timeline(since="30m", grep=None, kinds=None, limit=400):
+    lines = [line_of(e) for e in events(since, grep, kinds)]
+    if len(lines) > limit:
+        lines = [f"... {len(lines) - limit} earlier events not shown"] + lines[-limit:]
+    return "\n".join(lines) or f"nothing recorded in the last {since}"
+
+
+TOOLS = [
+    {
+        "name": "recent_activity",
+        "description": "What the user did in their browser recently, oldest first: pages opened, clicks (by the words "
+                       "on the button/link), field changes (name = value; private fields hidden), API calls with "
+                       "status, console errors, and screenshots taken at key moments. Use it before asking the user "
+                       "what they did or what went wrong.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "since": {"type": "string", "description": "How far back: 90s, 30m, 2h, 1d. Default 30m."},
+                "grep": {"type": "string", "description": "Only lines containing this text (case-insensitive)."},
+                "kinds": {"type": "array", "items": {"type": "string", "enum": ["page", "click", "field", "submit", "net", "console", "shot"]},
+                          "description": "Only these kinds of events."},
+            },
+        },
+    },
+    {
+        "name": "get_screenshot",
+        "description": "A screenshot tabcam took (the path comes from a 'shot' line in recent_activity).",
+        "inputSchema": {"type": "object", "properties": {"file": {"type": "string"}}, "required": ["file"]},
+    },
+]
+
+
+def call_tool(name, args):
+    """Runs one MCP tool; returns MCP content items."""
+    if name == "recent_activity":
+        return [{"type": "text", "text": timeline(args.get("since") or "30m", args.get("grep"), args.get("kinds"))}]
+    if name == "get_screenshot":
+        path = os.path.realpath(args.get("file", ""))
+        if not path.startswith(os.path.realpath(shots_dir()) + os.sep) or not os.path.isfile(path):
+            raise ValueError("not a tabcam screenshot")
+        with open(path, "rb") as f:
+            return [{"type": "image", "data": base64.b64encode(f.read()).decode(), "mimeType": "image/jpeg"}]
+    raise ValueError(f"unknown tool {name}")
+
+
+def mcp_reply(req):
+    """Answers one JSON-RPC request from an MCP client; None for notifications."""
+    method, rid, params = req.get("method"), req.get("id"), req.get("params") or {}
+    if rid is None:
+        return None
+    if method == "initialize":
+        result = {"protocolVersion": params.get("protocolVersion", "2025-06-18"), "capabilities": {"tools": {}},
+                  "serverInfo": {"name": "tabcam", "version": VERSION}}
+    elif method == "tools/list":
+        result = {"tools": TOOLS}
+    elif method == "tools/call":
+        try:
+            result = {"content": call_tool(params.get("name"), params.get("arguments") or {})}
+        except (ValueError, OSError) as e:
+            result = {"content": [{"type": "text", "text": str(e)}], "isError": True}
+    elif method == "ping":
+        result = {}
+    else:
+        return {"jsonrpc": "2.0", "id": rid, "error": {"code": -32601, "message": f"no method {method}"}}
+    return {"jsonrpc": "2.0", "id": rid, "result": result}
+
+
+def mcp():
+    """MCP over stdio: one JSON-RPC message per line."""
+    for line in sys.stdin:
+        if not line.strip():
+            continue
+        reply = mcp_reply(json.loads(line))
+        if reply is not None:
+            sys.stdout.write(json.dumps(reply) + "\n")
+            sys.stdout.flush()
+
+
+def install(chrome_id=None):
+    """Registers this script as the `tabcam` native messaging host for Firefox (and Chrome when given its id)."""
+    me = os.path.realpath(__file__)
+    os.chmod(me, 0o755)
+    mac = sys.platform == "darwin"
+    targets = [(os.path.expanduser("~/Library/Application Support/Mozilla/NativeMessagingHosts" if mac else "~/.mozilla/native-messaging-hosts"),
+                {"allowed_extensions": [EXT_ID]})]
+    if chrome_id:
+        targets.append((os.path.expanduser("~/Library/Application Support/Google/Chrome/NativeMessagingHosts" if mac else "~/.config/google-chrome/NativeMessagingHosts"),
+                        {"allowed_origins": [f"chrome-extension://{chrome_id}/"]}))
+    for folder, allow in targets:
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, "tabcam.json"), "w") as f:
+            json.dump({"name": "tabcam", "description": "tabcam recorder", "path": me, "type": "stdio", **allow}, f, indent=2)
+        print(f"registered: {os.path.join(folder, 'tabcam.json')}")
+
+
+def pack():
+    os.makedirs(os.path.join(HERE, "dist"), exist_ok=True)
+    out = os.path.join(HERE, "dist", "tabcam.xpi")
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        for name in sorted(os.listdir(os.path.join(HERE, "extension"))):
+            z.write(os.path.join(HERE, "extension", name), name)
+    print(out)
+
+
+def selftest():
+    """Writer -> reader -> MCP round trip in a temp data dir."""
+    global DATA
+    DATA = tempfile.mkdtemp()
+    now = int(time.time() * 1000)
+    state = {}
+    write({"config": {"keepHours": 2}}, state)
+    assert state["keep_hours"] == 2
+    write({"event": {"ts": now, "tab": 1, "kind": "click", "text": "Save", "tag": "button", "path": "/a"}}, state)
+    write({"event": {"ts": now + 1, "tab": 1, "kind": "field", "name": "Card", "value": "[private]", "path": "/a"}}, state)
+    write({"shot": {"ts": now + 2, "tab": 1, "reason": "clicked Save", "url": "u",
+                    "dataUrl": "data:image/jpeg;base64," + base64.b64encode(b"jpg").decode()}}, state)
+    assert [e["kind"] for e in events("5m")] == ["click", "field", "shot"]
+    assert "'Save' (button) on /a" in timeline("5m")
+    assert events("5m", grep="card")[0]["kind"] == "field"
+    assert events("5m", kinds=["shot"])[0]["file"].endswith(".jpg")
+    assert mcp_reply({"method": "notifications/initialized"}) is None
+    assert mcp_reply({"id": 1, "method": "initialize", "params": {"protocolVersion": "x"}})["result"]["protocolVersion"] == "x"
+    assert [t["name"] for t in mcp_reply({"id": 2, "method": "tools/list"})["result"]["tools"]] == ["recent_activity", "get_screenshot"]
+    text = mcp_reply({"id": 3, "method": "tools/call", "params": {"name": "recent_activity", "arguments": {"since": "5m"}}})
+    assert "clicked Save" in text["result"]["content"][0]["text"]
+    img = mcp_reply({"id": 4, "method": "tools/call", "params": {"name": "get_screenshot", "arguments": {"file": events("5m", kinds=["shot"])[0]["file"]}}})
+    assert img["result"]["content"][0]["type"] == "image"
+    bad = mcp_reply({"id": 5, "method": "tools/call", "params": {"name": "get_screenshot", "arguments": {"file": "/etc/passwd"}}})
+    assert bad["result"]["isError"]
+    old = os.path.join(DATA, "2000-01-01-00.jsonl")
+    open(old, "w").close()
+    os.utime(old, (0, 0))
+    prune(2)
+    assert not os.path.exists(old)
+    print("selftest ok")
+
+
+def main():
+    if EXT_ID in sys.argv[1:] or any(a.startswith("chrome-extension://") for a in sys.argv[1:]):
+        return host()
+    p = argparse.ArgumentParser(prog="tabcam", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    s = sub.add_parser("log", help="print the timeline")
+    s.add_argument("--since", default="1h")
+    s.add_argument("--grep")
+    s.add_argument("--kind", help="comma-separated: page,click,field,submit,net,console,shot")
+    s.add_argument("--json", action="store_true", help="raw events, one JSON object per line")
+    s = sub.add_parser("shots", help="list screenshots")
+    s.add_argument("--since", default="1h")
+    sub.add_parser("mcp", help="MCP server on stdio")
+    s = sub.add_parser("install", help="register the native host")
+    s.add_argument("--chrome-id", help="the extension id Chrome shows after loading it unpacked")
+    sub.add_parser("pack", help="build dist/tabcam.xpi")
+    sub.add_parser("selftest")
+    a = p.parse_args()
+    if a.cmd == "log":
+        kinds = a.kind.split(",") if a.kind else None
+        if a.json:
+            for e in events(a.since, a.grep, kinds):
+                print(json.dumps(e))
+        else:
+            print(timeline(a.since, a.grep, kinds, limit=10 ** 9))
+    elif a.cmd == "shots":
+        print(timeline(a.since, kinds=["shot"], limit=10 ** 9))
+    elif a.cmd == "mcp":
+        mcp()
+    elif a.cmd == "install":
+        install(a.chrome_id)
+    elif a.cmd == "pack":
+        pack()
+    else:
+        selftest()
+
+
+if __name__ == "__main__":
+    main()

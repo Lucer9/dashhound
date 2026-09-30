@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "tabcam",
+  "version": "0.1.0",
+  "description": "A dashcam for your dev browser: a local log of what you did, for you and your coding agent.",
+  "permissions": ["nativeMessaging", "storage", "tabs", "webRequest"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "scripts": ["background.js"], "service_worker": "background.js" },
+  "content_scripts": [
+    { "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_start" },
+    { "matches": ["<all_urls>"], "js": ["page.js"], "run_at": "document_start", "world": "MAIN" }
+  ],
+  "options_ui": { "page": "options.html", "open_in_tab": false },
+  "icons": { "48": "icon.svg", "96": "icon.svg" },
+  "browser_specific_settings": { "gecko": { "id": "tabcam@tabcam", "strict_min_version": "128.0" } }
+}

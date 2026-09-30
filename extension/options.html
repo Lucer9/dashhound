@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>tabcam settings</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 16px; min-width: 420px; color: #1f2937; }
+  label { display: block; font-weight: 600; margin: 14px 0 4px; }
+  small { display: block; color: #6b7280; font-weight: 400; margin-bottom: 4px; }
+  textarea { width: 100%; box-sizing: border-box; font: 12px ui-monospace, monospace; }
+  input[type=number] { width: 5em; }
+  button { margin-top: 14px; padding: 6px 14px; }
+  #saved { color: #059669; margin-left: 8px; }
+</style>
+<label for="sites">Record these sites
+  <small>One match pattern per line, e.g. <code>http://localhost/*</code> or <code>https://*.staging.example.com/*</code>. Nothing else is recorded.</small>
+</label>
+<textarea id="sites" rows="5"></textarea>
+<label for="private">Never record values of
+  <small>CSS selectors. Passwords, card fields and anything marked <code>data-private</code> are covered by default; card-like numbers are always hidden.</small>
+</label>
+<textarea id="private" rows="3"></textarea>
+<label><input type="checkbox" id="shots"> Screenshots after save-type clicks, form submits, HTTP errors and console errors</label>
+<label for="keepHours">Keep the log for <input type="number" id="keepHours" min="1" max="720"> hours</label>
+<button id="save">Save</button><span id="saved"></span>
+<script src="options.js"></script>
