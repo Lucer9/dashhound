@@ -420,7 +420,7 @@ def selftest():
     out = os.path.join(DATA, "report.html")
     write_report(out, "5m")
     page = open(out, encoding="utf-8").read()
-    assert "'Save' (button) on /a" in page and "data:image/jpeg;base64," in page and "promo expired" in page
+    assert "&#x27;Save&#x27; (button) on /a" in page and "data:image/jpeg;base64," in page and "promo expired" in page
     assert "<script>alert(1)</script>" not in page and "&lt;script&gt;alert(1)&lt;/script&gt;" in page
     write_report(out, "5m", kinds=["net"])
     assert "Save" not in open(out, encoding="utf-8").read()
