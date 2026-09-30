@@ -1,6 +1,6 @@
-/** tabcam settings: which sites are recorded, what stays private, screenshots, how long the log is kept. */
+/** dashhound settings: which sites are recorded, what stays private, screenshots, how long the log is kept. */
 const api = globalThis.browser || globalThis.chrome;
-const DEFAULT_PRIVATE = 'input[type=password], [autocomplete^="cc-"], [data-private], [data-tabcam-private]';
+const DEFAULT_PRIVATE = 'input[type=password], [autocomplete^="cc-"], [data-private], [data-dashhound-private]';
 const $ = (id) => document.getElementById(id);
 
 api.storage.local.get(['sites', 'private', 'shots', 'keepHours']).then((c) => {

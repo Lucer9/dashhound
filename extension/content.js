@@ -7,12 +7,12 @@ const api = globalThis.browser || globalThis.chrome;
 const INTERACTIVE = 'button, a, [role=button], [role=option], [role=menuitem], [role=tab], [role=checkbox], [role=switch], summary, label, select, input, textarea';
 const FIELDS = 'input, textarea, select';
 const CARD = /\b(?:\d[ -]?){13,19}\b/;
-let privateSelectors = 'input[type=password], [autocomplete^="cc-"], [data-private], [data-tabcam-private]';
+let privateSelectors = 'input[type=password], [autocomplete^="cc-"], [data-private], [data-dashhound-private]';
 
 api.storage.local.get('private').then(({ private: p }) => { if (p) privateSelectors = p; });
 api.storage.onChanged.addListener((c) => { if (c.private) privateSelectors = c.private.newValue; });
 
-const send = (ev) => api.runtime.sendMessage({ tabcam: { ...ev, path: location.pathname } }).catch(() => {});
+const send = (ev) => api.runtime.sendMessage({ dashhound: { ...ev, path: location.pathname } }).catch(() => {});
 const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
 
 /** What a person would call the thing they clicked. */
@@ -31,13 +31,13 @@ function fieldName(el) {
 /** A field's value as it may be recorded: private fields and card-like numbers never leave the page. */
 function fieldValue(el) {
   let privateField = false;
-  try { privateField = el.matches(privateSelectors) || !!el.closest('[data-private], [data-tabcam-private]'); } catch (e) {}
+  try { privateField = el.matches(privateSelectors) || !!el.closest('[data-private], [data-dashhound-private]'); } catch (e) {}
   const v = el.type === 'checkbox' || el.type === 'radio' ? String(el.checked) : String(el.value);
   return privateField || CARD.test(v) ? '[private]' : v.slice(0, 200);
 }
 
-if (!window.__tabcamInstalled) {
-  window.__tabcamInstalled = true;
+if (!window.__dashhoundInstalled) {
+  window.__dashhoundInstalled = true;
   const before = new WeakMap();
 
   document.addEventListener('click', (e) => {
@@ -71,6 +71,6 @@ if (!window.__tabcamInstalled) {
   }, true);
 
   window.addEventListener('message', (e) => {
-    if (e.source === window && e.data && e.data.__tabcam) send(e.data.__tabcam);
+    if (e.source === window && e.data && e.data.__dashhound) send(e.data.__dashhound);
   });
 }

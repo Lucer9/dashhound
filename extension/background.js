@@ -1,6 +1,6 @@
 /**
- * tabcam background: keeps the record list, receives page events, adds page loads and API calls, takes a
- * screenshot when something worth seeing happens, and streams everything to the local `tabcam` host, which
+ * dashhound background: keeps the record list, receives page events, adds page loads and API calls, takes a
+ * screenshot when something worth seeing happens, and streams everything to the local `dashhound` host, which
  * writes it to disk. Nothing is sent anywhere else.
  */
 const api = globalThis.browser || globalThis.chrome;
@@ -70,7 +70,7 @@ async function shot(tabId, reason, delay) {
 
 function connect() {
   try {
-    port = api.runtime.connectNative('tabcam');
+    port = api.runtime.connectNative('dashhound');
   } catch (e) {
     port = null;
     setTimeout(connect, 10000);
@@ -86,8 +86,8 @@ function connect() {
 
 api.runtime.onMessage.addListener((msg, sender) => {
   const tab = sender.tab;
-  if (!msg || !msg.tabcam || !tab || !recorded(tab.url)) return;
-  const ev = msg.tabcam;
+  if (!msg || !msg.dashhound || !tab || !recorded(tab.url)) return;
+  const ev = msg.dashhound;
   record(tab.id, ev.kind, ev);
   if (ev.kind === 'click' && SAVE_WORDS.test(ev.text)) shot(tab.id, `clicked ${ev.text}`, 900);
   if (ev.kind === 'submit') shot(tab.id, 'form submitted', 900);
