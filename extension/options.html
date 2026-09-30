@@ -22,6 +22,10 @@
 <label><input type="checkbox" id="bodies"> Request and response bodies, up to <input type="number" id="maxBodyKB" min="1" max="1024"> KB each
   <small>Secrets under keys like password, token, secret, authorization, api key, session and cookie are hidden, and so are card numbers. Headers are never recorded.</small>
 </label>
+<label for="privateKeys">Extra body keys to keep private
+  <small>One per line, added to the built-in list, in JSON and form bodies. A plain word matches a whole key name, ignoring case (<code>pin</code> hides <code>PIN</code> but not <code>shipping</code>). Wrap a regex in slashes for more: <code>/^ssn_/</code>, <code>/otp|pin$/i</code>.</small>
+</label>
+<textarea id="privateKeys" rows="3"></textarea>
 <label>Keep the last <input type="number" id="keepHours" min="1" max="720"> hours, and at most <input type="number" id="maxMB" min="10" max="100000"> MB
   <small>Whichever limit is reached first, the oldest recording is deleted, like a dashcam loop.</small>
 </label>

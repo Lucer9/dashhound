@@ -23,8 +23,9 @@ The story behind it, and Dash the pixel hound: [carlosaguirre.workers.dev/work/d
 - **Only the sites you list.** Default: `http://localhost/*` and `http://127.0.0.1/*`. Add your staging or QA
   hosts in the extension's settings. dashhound's scripts are only injected there; other sites never run them.
 - **Private by default.** Password and card fields, anything matching your private selectors, values under keys
-  like `password`, `token`, `secret`, `authorization`, `apiKey`, `session` or `cookie`, and anything that passes a
-  card-number checksum are stored as `[private]`. Request headers are never recorded.
+  like `password`, `token`, `secret`, `authorization`, `apiKey`, `session` or `cookie`, any extra body keys you
+  list in settings (one per line: a plain word matches a whole key name ignoring case, `/regex/` for patterns),
+  and anything that passes a card-number checksum are stored as `[private]`. Request headers are never recorded.
 - **Loop recording.** Like a dashcam: the oldest recording is deleted when either limit is hit, 24 hours or 500 MB
   by default (both configurable). It is a dashcam, not an archive.
 - **Readable by agents.** `dashhound mcp` is an MCP server, so Claude Code, Cursor or any MCP client can ask "what
