@@ -54,7 +54,7 @@ function recorded(url) {
 const active = (url) => !config.paused && recorded(url);
 
 /** The toolbar dog in the chosen coat (or the user's own colours), drawn from dog.js at each toolbar size. */
-const iconData = (state) => Object.fromEntries([16, 32, 48].map((size) => [size, dogImage(config.coat, config.colors, state, size)]));
+const iconData = (state) => Object.fromEntries([16, 32, 48].map((size) => [size, dogImage(config.coat, config.colors, state, size, true)]));
 
 /** The toolbar dog wears his red bandana on tabs that are being recorded (no badge). */
 async function updateIcon(tabId, url) {
