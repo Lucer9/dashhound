@@ -24,7 +24,9 @@ Read README.md first; it is the user-facing contract.
   directly. If a browser API only exists in one browser, say so in README's limits.
 - **README stays true.** A change to what is recorded, a setting, a command or a limit updates README in the same PR.
 - **Comments:** a short doc comment on functions whose purpose is not obvious; no line-by-line narration.
-- Bump `version` in `extension/manifest.json` and `VERSION` in `dashhound` together.
+- Don't bump versions in feature or fix PRs (parallel PRs would all conflict on it). A release commit bumps
+  `version` in `extension/manifest.json` and `VERSION` in `dashhound` together.
+- Keep PRs to one issue each, and say in the PR how you checked it (which of the checks below, and anything manual).
 
 ## Checks (all must pass)
 ```
