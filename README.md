@@ -73,7 +73,24 @@ Then open the extension's settings to choose which sites to record.
 ./dashhound log --grep expired        # searches bodies too
 ./dashhound log --json                # raw events
 ./dashhound shots                     # screenshots with their reason
+./dashhound status                    # data folder, size vs. the MB cap, oldest/newest event, last hour, browser connected
 ```
+
+## Deleting recordings
+
+If something sensitive got recorded by mistake:
+
+```sh
+./dashhound clear --since 10m         # deletes the last 10 minutes of events and screenshots
+./dashhound clear                     # deletes everything
+./dashhound clear --yes               # no confirmation prompt
+```
+
+`clear` asks for confirmation unless you pass `--yes`. Screenshots are matched by the time they were taken. A browser
+that is recording right now keeps writing new events after the clear.
+
+`status` shows "connected" when a dashhound host process is running, which means a browser with the extension is
+open. The MB cap shown is the one the extension last sent; until then it shows the 500 MB default.
 
 ## For coding agents (MCP)
 
@@ -105,6 +122,7 @@ Checks: `./dashhound selftest` (writer, loop limits, reader, MCP) and `node test
 - Screenshots need the tab to be the visible one in its window (browser rule).
 - Requests made by web workers and service workers are not seen (only the page's own `fetch`/XHR).
 - Tabs that were open before a site was added to the list start recording after a reload.
+- `status` finds the running host with `ps`, so on systems without it (Windows) it reports the browser as "unknown".
 - Safari is not supported yet (its extensions package and talk to native apps differently).
 - Values typed into fields are recorded unless private: keep the site list to development and test environments.
 

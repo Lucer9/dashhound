@@ -6,6 +6,8 @@ errors, and a screenshot when something worth seeing happens). This one file is 
 
   dashhound log [--since 30m] [--grep text] [--kind click,net]   read the timeline
   dashhound shots [--since 1h]                                     list screenshots
+  dashhound clear [--since 10m] [--yes]                            delete recordings (all, or only the last N minutes)
+  dashhound status                                                 folder, size, newest event, is a browser connected
   dashhound mcp                                                    MCP server (stdio) so coding agents can read it
   dashhound install [--chrome-id ID]                               register the native host with Firefox / Chrome
   dashhound pack                                                   zip the extension for Firefox (dist/dashhound.xpi)
@@ -19,6 +21,7 @@ import base64
 import json
 import os
 import struct
+import subprocess
 import sys
 import tempfile
 import time
@@ -28,6 +31,7 @@ VERSION = "0.3.1"
 EXT_ID = "dashhound@dashhound"
 HERE = os.path.dirname(os.path.realpath(__file__))
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "dashhound")
+CONFIG = "config.json"
 UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
 
 
@@ -40,6 +44,9 @@ def write(msg, state):
     if "config" in msg:
         state["keep_hours"] = max(1, int(msg["config"].get("keepHours") or 24))
         state["max_mb"] = max(10, int(msg["config"].get("maxMB") or 500))
+        os.makedirs(DATA, exist_ok=True)
+        with open(os.path.join(DATA, CONFIG), "w") as f:
+            json.dump({"keepHours": state["keep_hours"], "maxMB": state["max_mb"]}, f)
         return
     os.makedirs(shots_dir(), exist_ok=True)
     ev = msg.get("event")
@@ -66,7 +73,7 @@ def prune(keep_hours, max_mb=500):
     files = []
     for d in (DATA, shots_dir()):
         if os.path.isdir(d):
-            files += [os.path.join(d, n) for n in os.listdir(d) if os.path.isfile(os.path.join(d, n))]
+            files += [os.path.join(d, n) for n in os.listdir(d) if n != CONFIG and os.path.isfile(os.path.join(d, n))]
     files.sort(key=os.path.getmtime)
     cutoff = time.time() - keep_hours * 3600
     total = sum(os.path.getsize(f) for f in files)
@@ -75,6 +82,74 @@ def prune(keep_hours, max_mb=500):
             break
         total -= os.path.getsize(f)
         os.unlink(f)
+
+
+def clear(since=None):
+    """Deletes recordings: everything, or only events and screenshots from the last `since`. Returns (events, shots) removed."""
+    start = since_ts(since) if since else 0
+    gone = shots = 0
+    if os.path.isdir(shots_dir()):
+        for n in os.listdir(shots_dir()):
+            full = os.path.join(shots_dir(), n)
+            if os.path.isfile(full) and os.path.getmtime(full) >= start:
+                os.unlink(full)
+                shots += 1
+    if os.path.isdir(DATA):
+        for n in sorted(os.listdir(DATA)):
+            full = os.path.join(DATA, n)
+            if not n.endswith(".jsonl") or os.path.getmtime(full) < start:
+                continue
+            keep = []
+            with open(full) as f:
+                for line in f:
+                    try:
+                        drop = json.loads(line).get("ts", 0) / 1000 >= start
+                    except ValueError:
+                        drop = False
+                    if drop:
+                        gone += 1
+                    else:
+                        keep.append(line)
+            if not keep:
+                os.unlink(full)
+            else:
+                tmp = full + ".tmp"
+                with open(tmp, "w") as f:
+                    f.writelines(keep)
+                os.replace(tmp, full)
+    return gone, shots
+
+
+def host_running():
+    """True/False when a dashhound host process is running (a browser started it), None if processes cannot be listed."""
+    try:
+        out = subprocess.run(["ps", "-A", "-o", "args="], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return any("dashhound" in line and (EXT_ID in line or "chrome-extension://" in line) for line in out.splitlines())
+
+
+def status_text(running=None):
+    """Data folder, size against the cap, oldest and newest event, last hour's counts, and whether a host is connected."""
+    used = sum(os.path.getsize(os.path.join(d, n)) for d in (DATA, shots_dir()) if os.path.isdir(d)
+               for n in os.listdir(d) if os.path.isfile(os.path.join(d, n)))
+    try:
+        with open(os.path.join(DATA, CONFIG)) as f:
+            cap = json.load(f)["maxMB"]
+    except (OSError, ValueError, KeyError):
+        cap = None
+    allev = events("36500d")
+    last = events("1h")
+    fmt = lambda e: time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(e["ts"] / 1000))
+    link = {True: "connected (host running)", False: "not connected (no host running)", None: "unknown (cannot list processes)"}
+    return "\n".join([
+        f"data folder: {DATA}",
+        f"size:        {used / 1048576:.1f} MB of {cap or 500} MB" + ("" if cap else " (default; the extension has not sent its settings yet)"),
+        f"oldest:      {fmt(allev[0]) if allev else 'no events'}",
+        f"newest:      {fmt(allev[-1]) if allev else 'no events'}",
+        f"last hour:   {len(last)} events, {sum(e.get('kind') == 'shot' for e in last)} screenshots",
+        f"browser:     {link[running]}",
+    ])
 
 
 def host():
@@ -308,6 +383,21 @@ def selftest():
         os.utime(f, (time.time() - 30 + i, time.time() - 30 + i))
     prune(24, max_mb=10)
     assert [os.path.exists(f) for f in big] == [False, False, True], "size cap drops the oldest first"
+    DATA = tempfile.mkdtemp()
+    state = {}
+    write({"config": {"maxMB": 50}}, state)
+    write({"event": {"ts": now - 3 * 3600 * 1000, "tab": 1, "kind": "click", "text": "Old", "tag": "button", "path": "/a"}}, state)
+    write({"event": {"ts": now - 60 * 1000, "tab": 1, "kind": "click", "text": "Recent", "tag": "button", "path": "/a"}}, state)
+    write({"shot": {"ts": now, "tab": 1, "reason": "r", "url": "u", "dataUrl": "data:image/jpeg;base64," + base64.b64encode(b"jpg").decode()}}, state)
+    st = status_text(True)
+    assert "of 50 MB" in st and "2 events, 1 screenshots" in st and "connected (host running)" in st, st
+    assert "no host running" in status_text(False) and "unknown" in status_text(None)
+    assert clear("10m") == (2, 1), "only the last 10 minutes go (the recent click and the shot event)"
+    assert [e["text"] for e in events("1d")] == ["Old"] and not os.listdir(shots_dir())
+    assert os.path.exists(os.path.join(DATA, CONFIG)), "clear keeps the settings"
+    assert clear() == (1, 0) and events("1d") == []
+    assert "oldest:      no events" in status_text()
+    assert host_running() in (True, False, None)
     print("selftest ok")
 
 
@@ -324,6 +414,10 @@ def main():
     s.add_argument("--bodies", action="store_true", help="print what each API call sent and got back under its line")
     s = sub.add_parser("shots", help="list screenshots")
     s.add_argument("--since", default="1h")
+    s = sub.add_parser("clear", help="delete recordings (all, or only the last N minutes)")
+    s.add_argument("--since", help="only delete the last N, e.g. 10m, 2h (default: everything)")
+    s.add_argument("--yes", action="store_true", help="do not ask for confirmation")
+    sub.add_parser("status", help="data folder, size, newest event, whether a browser is connected")
     sub.add_parser("mcp", help="MCP server on stdio")
     s = sub.add_parser("install", help="register the native host")
     s.add_argument("--chrome-id", help="the extension id Chrome shows after loading it unpacked")
@@ -339,6 +433,14 @@ def main():
             print(timeline(a.since, a.grep, kinds, limit=10 ** 9, bodies=a.bodies, body_limit=None))
     elif a.cmd == "shots":
         print(timeline(a.since, kinds=["shot"], limit=10 ** 9))
+    elif a.cmd == "clear":
+        what = f"the last {a.since}" if a.since else "ALL recordings"
+        if not a.yes and input(f"Delete {what} in {DATA}? [y/N] ").strip().lower() not in ("y", "yes"):
+            sys.exit("nothing deleted")
+        gone, shots = clear(a.since)
+        print(f"deleted {gone} events and {shots} screenshots")
+    elif a.cmd == "status":
+        print(status_text(host_running()))
     elif a.cmd == "mcp":
         mcp()
     elif a.cmd == "install":
