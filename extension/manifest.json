@@ -1,16 +1,36 @@
 {
   "manifest_version": 3,
   "name": "dashhound",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "A dashcam for your dev browser: a local log of what you did, for you and your coding agent.",
-  "permissions": ["nativeMessaging", "storage", "tabs", "webRequest"],
-  "host_permissions": ["<all_urls>"],
-  "background": { "scripts": ["background.js"], "service_worker": "background.js" },
-  "content_scripts": [
-    { "matches": ["<all_urls>"], "js": ["content.js"], "run_at": "document_start" },
-    { "matches": ["<all_urls>"], "js": ["page.js"], "run_at": "document_start", "world": "MAIN" }
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "tabs",
+    "scripting"
   ],
-  "options_ui": { "page": "options.html", "open_in_tab": false },
-  "icons": { "48": "icon.svg", "96": "icon.svg" },
-  "browser_specific_settings": { "gecko": { "id": "dashhound@dashhound", "strict_min_version": "128.0" } }
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": [
+      "redact.js",
+      "background.js"
+    ],
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "icons": {
+    "48": "icon.svg",
+    "96": "icon.svg"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "dashhound@dashhound",
+      "strict_min_version": "128.0"
+    }
+  }
 }
