@@ -2,21 +2,103 @@
 <meta charset="utf-8">
 <title>dashhound</title>
 <style>
-  body { font: 13px system-ui, sans-serif; margin: 12px; width: 320px; color: #1f2937; }
-  #site { font-weight: 600; word-break: break-all; }
-  #state { margin: 2px 0 10px; color: #6b7280; }
-  #state.rec { color: #dc2626; font-weight: 600; }
-  button { padding: 5px 12px; margin: 0 6px 6px 0; }
-  ul { list-style: none; padding: 0; margin: 4px 0 10px; font: 12px ui-monospace, monospace; }
-  li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  h2 { font-size: 12px; margin: 10px 0 0; color: #6b7280; text-transform: uppercase; }
+  :root {
+    --bg: #ffffff; --fg: #1f2328; --muted: #6b7280; --line: #e5e7eb; --soft: #f5f5f4;
+    --rec: #e5332b; --rec-soft: #fde8e7; --pause: #b45309; --pause-soft: #fef3c7; --off: #6b7280; --off-soft: #f3f4f6;
+    --ink: #231e1d; --ink-fg: #ffffff; --coat: #b86a3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f1d1c; --fg: #f3f1ef; --muted: #a8a29e; --line: #3a3634; --soft: #2a2725;
+      --rec: #ff5a4f; --rec-soft: #3d1f1d; --pause: #fbbf24; --pause-soft: #3a2f16; --off: #a8a29e; --off-soft: #2a2725;
+      --ink: #f3f1ef; --ink-fg: #1f1d1c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; width: 340px; background: var(--bg); color: var(--fg); font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible, a:focus-visible { outline: 2px solid var(--coat); outline-offset: 2px; }
+
+  header { display: grid; grid-template-columns: 48px 1fr; gap: 12px; align-items: center; padding: 14px 14px 10px; }
+  #dog { width: 48px; height: 48px; image-rendering: pixelated; }
+  #site { font-weight: 650; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #pill { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; padding: 1px 9px 1px 7px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  #pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  #pill.rec { color: var(--rec); background: var(--rec-soft); }
+  #pill.rec::before { animation: blink 1.2s steps(2, jump-none) infinite; }
+  #pill.pause { color: var(--pause); background: var(--pause-soft); }
+  #pill.off { color: var(--off); background: var(--off-soft); }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  @media (prefers-reduced-motion: reduce) { #pill.rec::before { animation: none; } }
+
+  .actions { display: flex; gap: 8px; padding: 0 14px 12px; }
+  .actions button { flex: 1; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font-weight: 600; }
+  .actions button.primary { background: var(--ink); color: var(--ink-fg); border-color: var(--ink); }
+  .actions button:hover { filter: brightness(0.96); }
+  .note { padding: 0 14px 10px; color: var(--muted); font-size: 12px; }
+
+  section { border-top: 1px solid var(--line); padding: 10px 14px 8px; }
+  h2 { margin: 0 0 6px; font-size: 11px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+  ol { list-style: none; margin: 0; padding: 0; }
+  li { display: grid; grid-template-columns: auto 52px 1fr; gap: 8px; align-items: baseline; padding: 3px 0; }
+  li time { color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  li .kind { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+  li .kind.bad { color: var(--rec); }
+  li .text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  li .text.bad { color: var(--rec); }
+  .empty { color: var(--muted); padding: 2px 0 4px; }
+
+  footer { display: grid; gap: 8px; border-top: 1px solid var(--line); padding: 10px 14px 12px; background: var(--soft); }
+  .coats { display: flex; align-items: center; gap: 4px; }
+  .coats span { color: var(--muted); font-size: 12px; margin-right: 4px; }
+  .coats button { padding: 2px; border: 2px solid transparent; border-radius: 8px; background: none; line-height: 0; }
+  .coats button[aria-pressed="true"] { border-color: var(--coat); }
+  .coats canvas { width: 24px; height: 24px; image-rendering: pixelated; }
+  [hidden] { display: none !important; }
+  .colors { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 12px; }
+  .colors label { display: inline-flex; align-items: center; gap: 5px; color: var(--fg); }
+  .colors input[type=color] { width: 22px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; cursor: pointer; }
+  .colors button { margin-left: auto; border: 0; background: none; padding: 0; color: var(--muted); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+  .links { display: flex; gap: 14px; }
+  .links button, .links a { border: 0; background: none; padding: 0; color: var(--fg); font-size: 12px; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+  .links button:hover, .links a:hover { text-decoration-color: currentColor; }
 </style>
-<div id="site"></div>
-<div id="state"></div>
-<button id="add" hidden>Record this site</button>
-<button id="reload" hidden>Reload tab</button>
-<button id="pause"></button>
-<h2>Last events in this tab</h2>
-<ul id="events"></ul>
-<a href="#" id="settings">Settings</a>
+<header>
+  <canvas id="dog" width="48" height="48" aria-hidden="true"></canvas>
+  <div>
+    <div id="site"></div>
+    <div id="pill" role="status"></div>
+  </div>
+</header>
+<div class="actions">
+  <button id="add" class="primary" hidden>Record this site</button>
+  <button id="reload" class="primary" hidden>Reload to start recording</button>
+  <button id="pause" hidden></button>
+</div>
+<div class="note" id="note" hidden></div>
+<section>
+  <h2>Just now in this tab</h2>
+  <ol id="events"></ol>
+</section>
+<footer>
+  <div class="coats" role="group" aria-label="Dog's coat">
+    <span>Coat</span>
+    <button data-coat="dapple" aria-label="Dapple" title="Dapple"><canvas width="32" height="32"></canvas></button>
+    <button data-coat="cream" aria-label="Cream" title="Cream"><canvas width="32" height="32"></canvas></button>
+    <button data-coat="black" aria-label="Black (hard to see on dark toolbars)" title="Black (hard to see on dark toolbars)"><canvas width="32" height="32"></canvas></button>
+    <button data-coat="custom" aria-label="Your colours" title="Your colours"><canvas width="32" height="32"></canvas></button>
+  </div>
+<div id="colors" class="colors" hidden>
+    <label><input type="color" data-role="coat"> Coat</label>
+    <label><input type="color" data-role="muzzle"> Muzzle</label>
+    <label><input type="color" data-role="ears"> Ears</label>
+    <label><input type="color" data-role="bandana"> Bandana</label>
+    <button id="resetColors" type="button">Reset</button>
+  </div>
+  <div class="links">
+    <button id="copy" title="Copy a command that prints the last 10 minutes, to paste for your agent">Copy log command</button>
+    <a href="#" id="settings">Settings</a>
+  </div>
+</footer>
+<script src="dog.js"></script>
 <script src="popup.js"></script>

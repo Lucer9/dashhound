@@ -81,17 +81,21 @@ Then open the extension's settings to choose which sites to record.
 
 ## The toolbar button
 
-A red `REC` badge on the toolbar icon means the current tab is on your site list and recording is on; no badge means
-it is not recorded. Click the icon for the popup:
+The toolbar icon is Dash, a pixel dachshund. He wears a **red bandana** on tabs that are being recorded and takes it
+off everywhere else, so there is no badge. Click him for the menu:
 
-- the current site and whether it is recorded;
-- **Record this site** adds `<scheme>://<host>/*` to the list (any port) and offers to reload the tab, because the
-  scripts only reach pages loaded after the site is listed;
-- **Pause recording** / **Resume** stops all recording (events, page loads, screenshots) without touching the list.
-  The state is kept across browser restarts;
-- the last 5 events in this tab, one line each (field values and bodies are not shown), and a link to settings.
+- the site, and whether it is **Recording**, **Paused** or **Not recorded**;
+- one action that fits: **Record this site** (adds `<scheme>://<host>/*`, any port, then offers to reload, since the
+  scripts only reach pages loaded after the site is listed), **Pause** or **Resume recording** (stops everything
+  without touching the list; kept across restarts);
+- what just happened in this tab: the last 5 events with their time, failed calls and errors in red (never field
+  values or bodies; kept in memory for the browser session only);
+- the **coat**: dapple (default), cream, black (hard to see on dark toolbars), or your own colours for coat, muzzle,
+  ears and bandana;
+- **Copy log command** (`dashhound log --since 10m`, to paste for your agent) and Settings.
 
-It needs no extra permissions. The last events are kept only for the browser session (`storage.session`), in memory.
+The dog was drawn in `art/icon.json` (16×16, one letter per colour). `python3 art/export.py` writes the store icons
+and `extension/dog.js`, which the extension uses to draw him in any colours at runtime.
 
 ## Reading it
 

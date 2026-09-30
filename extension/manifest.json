@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "dashhound",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A dashcam for your dev browser: a local log of what you did, for you and your coding agent.",
   "permissions": [
     "nativeMessaging",
@@ -15,21 +15,30 @@
   "background": {
     "scripts": [
       "redact.js",
+      "dog.js",
       "background.js"
     ],
     "service_worker": "background.js"
   },
   "action": {
     "default_title": "dashhound",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/dapple/icon-16.png",
+      "32": "icons/dapple/icon-32.png",
+      "48": "icons/dapple/icon-48.png"
+    }
   },
   "options_ui": {
     "page": "options.html",
     "open_in_tab": false
   },
   "icons": {
-    "48": "icon.svg",
-    "96": "icon.svg"
+    "16": "icons/dapple/icon-16.png",
+    "32": "icons/dapple/icon-32.png",
+    "48": "icons/dapple/icon-48.png",
+    "96": "icons/dapple/icon-96.png",
+    "128": "icons/dapple/icon-128.png"
   },
   "browser_specific_settings": {
     "gecko": {
