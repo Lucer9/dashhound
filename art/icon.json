@@ -1,0 +1,165 @@
+{
+ "source": "Drawn with Carlos in the Taquito design session (dev-scripts sprites/dashhound_icon*.py), 2026-09-30. dapple is the default; black is weak on dark toolbars.",
+ "coats": {
+  "dapple": {
+   "letters": "dobkcr",
+   "palette": [
+    "#b86a3a",
+    "#e8b07a",
+    "#5a3322",
+    "#231e1d",
+    "#ffffff",
+    "#e5332b"
+   ],
+   "states": {
+    "icon": [
+     [
+      ".....kkkkkk.....",
+      "..kkkddddddkkk..",
+      ".kbbddddddddbbk.",
+      "kbbbddddddddbbbk",
+      "kbbbdckddkcdbbbk",
+      "kbbbdkkddkkdbbbk",
+      "kbbbbdoooodbbbbk",
+      "kbbbbkooookbbbbk",
+      ".kbbbkooookbbbk.",
+      "..kbbkokkokbbk..",
+      "...kk.kook.kk...",
+      ".......kk.......",
+      "................",
+      "................",
+      "................",
+      "................"
+     ]
+    ],
+    "recording": [
+     [
+      ".....kkkkkk.....",
+      "..kkkddddddkkk..",
+      ".kbbddddddddbbk.",
+      "kbbbddddddddbbbk",
+      "kbbbdckddkcdbbbk",
+      "kbbbdkkddkkdbbbk",
+      "kbbbbdoooodbbbbk",
+      "kbbbbkooookbbbbk",
+      ".kbbbkooookbbbk.",
+      "..kbbkokkokbbk..",
+      "...kkkkookkkk...",
+      "....krrrrrrk....",
+      ".....krrrrk.....",
+      "......krrk......",
+      ".......kk.......",
+      "................"
+     ]
+    ]
+   }
+  },
+  "cream": {
+   "letters": "dobkcr",
+   "palette": [
+    "#f1d9b0",
+    "#fcf4e8",
+    "#c9a37a",
+    "#231e1d",
+    "#ffffff",
+    "#e5332b"
+   ],
+   "states": {
+    "icon": [
+     [
+      ".....kkkkkk.....",
+      "..kkkddddddkkk..",
+      ".kbbddddddddbbk.",
+      "kbbbddddddddbbbk",
+      "kbbbdckddkcdbbbk",
+      "kbbbdkkddkkdbbbk",
+      "kbbbbdoooodbbbbk",
+      "kbbbbkooookbbbbk",
+      ".kbbbkooookbbbk.",
+      "..kbbkokkokbbk..",
+      "...kk.kook.kk...",
+      ".......kk.......",
+      "................",
+      "................",
+      "................",
+      "................"
+     ]
+    ],
+    "recording": [
+     [
+      ".....kkkkkk.....",
+      "..kkkddddddkkk..",
+      ".kbbddddddddbbk.",
+      "kbbbddddddddbbbk",
+      "kbbbdckddkcdbbbk",
+      "kbbbdkkddkkdbbbk",
+      "kbbbbdoooodbbbbk",
+      "kbbbbkooookbbbbk",
+      ".kbbbkooookbbbk.",
+      "..kbbkokkokbbk..",
+      "...kkkkookkkk...",
+      "....krrrrrrk....",
+      ".....krrrrk.....",
+      "......krrk......",
+      ".......kk.......",
+      "................"
+     ]
+    ]
+   }
+  },
+  "black": {
+   "letters": "dobkcrf",
+   "palette": [
+    "#3a2d28",
+    "#e8b07a",
+    "#1f1714",
+    "#231e1d",
+    "#ffffff",
+    "#e5332b",
+    "#e8b07a"
+   ],
+   "states": {
+    "icon": [
+     [
+      ".....kkkkkk.....",
+      "..kkkddddddkkk..",
+      ".kbbddddddddbbk.",
+      "kbbbdfddddfdbbbk",
+      "kbbbdckddkcdbbbk",
+      "kbbbdkkddkkdbbbk",
+      "kbbbbdoooodbbbbk",
+      "kbbbbkooookbbbbk",
+      ".kbbbkooookbbbk.",
+      "..kbbkokkokbbk..",
+      "...kk.kook.kk...",
+      ".......kk.......",
+      "................",
+      "................",
+      "................",
+      "................"
+     ]
+    ],
+    "recording": [
+     [
+      ".....kkkkkk.....",
+      "..kkkddddddkkk..",
+      ".kbbddddddddbbk.",
+      "kbbbdfddddfdbbbk",
+      "kbbbdckddkcdbbbk",
+      "kbbbdkkddkkdbbbk",
+      "kbbbbdoooodbbbbk",
+      "kbbbbkooookbbbbk",
+      ".kbbbkooookbbbk.",
+      "..kbbkokkokbbk..",
+      "...kkkkookkkk...",
+      "....krrrrrrk....",
+      ".....krrrrk.....",
+      "......krrk......",
+      ".......kk.......",
+      "................"
+     ]
+    ]
+   }
+  }
+ }
+}

@@ -5,7 +5,7 @@
  * Nothing is sent anywhere else.
  */
 const api = globalThis.browser || globalThis.chrome;
-if (typeof redact === 'undefined' && typeof importScripts === 'function') importScripts('redact.js');
+if (typeof redact === 'undefined' && typeof importScripts === 'function') importScripts('redact.js', 'dog.js');
 const DEFAULTS = {
   sites: ['http://localhost/*', 'http://127.0.0.1/*'],
   shots: true,
@@ -15,6 +15,8 @@ const DEFAULTS = {
   keepHours: 24,
   maxMB: 500,
   paused: false,
+  coat: 'dapple',
+  colors: { coat: '#b86a3a', muzzle: '#e8b07a', ears: '#5a3322', bandana: '#e5332b' },
 };
 const PATTERN = /^(\*|https?|file):\/\/(\*|\*\.[^/*]+|[^/*]+)\/.*$/;
 const SAVE_WORDS = /\b(save|add|create|confirm|submit|delete|remove|apply|continue|approve|reject|send|pay|accept|publish|checkout|sign ?in|log ?in)\b/i;
@@ -51,15 +53,19 @@ function recorded(url) {
 /** Whether a URL is recorded right now: on the list and not paused. */
 const active = (url) => !config.paused && recorded(url);
 
-/** Red REC badge on tabs that are being recorded, none elsewhere. */
-async function updateBadge(tabId, url) {
+/** The toolbar dog in the chosen coat (or the user's own colours), drawn from dog.js at each toolbar size. */
+const iconData = (state) => Object.fromEntries([16, 32, 48].map((size) => [size, dogImage(config.coat, config.colors, state, size)]));
+
+/** The toolbar dog wears his red bandana on tabs that are being recorded (no badge). */
+async function updateIcon(tabId, url) {
   try {
-    await api.action.setBadgeText({ tabId, text: active(url) ? 'REC' : '' });
+    await api.action.setIcon({ tabId, imageData: iconData(active(url) ? 'recording' : 'icon') });
   } catch (e) {}
 }
 
-async function updateAllBadges() {
-  for (const tab of await api.tabs.query({})) updateBadge(tab.id, tab.url);
+async function updateAllIcons() {
+  api.action.setIcon({ imageData: iconData('icon') }).catch(() => {});
+  for (const tab of await api.tabs.query({})) updateIcon(tab.id, tab.url);
 }
 
 /** Keeps a one-line summary (never bodies or field values) of the last events per tab, for the popup. */
@@ -74,7 +80,8 @@ function remember(tab, ev) {
   }[ev.kind];
   if (!what) return;
   const list = recent[tab] || (recent[tab] = []);
-  list.push({ ts: Date.now(), kind: ev.kind, text: String(what()).slice(0, 120) });
+  const bad = ev.kind === 'console' || (ev.kind === 'net' && (ev.status >= 400 || !!ev.error));
+  list.push({ ts: Date.now(), kind: ev.kind, text: String(what()).slice(0, 120), bad });
   if (list.length > RECENT_MAX) list.shift();
   api.storage.session.set({ recent }).catch(() => {});
 }
@@ -95,7 +102,7 @@ async function loadConfig() {
   matchers = patterns.map(toRegExp);
   extraKeys = compileKeys(config.privateKeys);
   await registerScripts(patterns);
-  updateAllBadges();
+  updateAllIcons();
   post({ config: { keepHours: config.keepHours, maxMB: config.maxMB } });
 }
 
@@ -168,7 +175,7 @@ api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 api.tabs.onUpdated.addListener((tabId, info, tab) => {
-  if (info.url || info.status) updateBadge(tabId, tab.url);
+  if (info.url || info.status) updateIcon(tabId, tab.url);
   if (info.url && active(info.url)) record(tabId, 'page', { url: info.url, title: tab.title });
 });
 
@@ -178,7 +185,6 @@ api.tabs.onRemoved.addListener((tabId) => {
   api.storage.session.set({ recent }).catch(() => {});
 });
 
-api.action.setBadgeBackgroundColor({ color: '#dc2626' });
 api.storage.session.get('recent').then((s) => { recent = s.recent || {}; }).catch(() => {});
 api.storage.onChanged.addListener((changes, area) => { if (area === 'local') loadConfig(); });
 loadConfig().then(connect);

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dashhound"
-version = "0.4.0"
+version = "0.5.0"
 description = "A dashcam for your dev browser: a local log of clicks, field changes and API calls for you and your coding agent."
 readme = "README.md"
 license = { text = "MIT" }
