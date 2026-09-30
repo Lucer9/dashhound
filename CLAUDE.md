@@ -6,7 +6,7 @@ Python file (`dashhound`) stores it on disk, loops it by hours or MB, and serves
 Read README.md first; it is the user-facing contract.
 
 ## Layout
-- `extension/manifest.json`: Manifest V3, Firefox 128+ and Chromium. `background.scripts` (Firefox) and
+- `extension/manifest.json`: Manifest V3, Firefox 140+ and Chromium. `background.scripts` (Firefox) and
   `background.service_worker` (Chrome) point at the same code.
 - `extension/background.js`: settings, registers `content.js` and `page.js` only on listed sites, redacts bodies,
   screenshots, native messaging to the host.
