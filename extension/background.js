@@ -14,17 +14,20 @@ const DEFAULTS = {
   privateKeys: '',
   keepHours: 24,
   maxMB: 500,
+  paused: false,
 };
 const PATTERN = /^(\*|https?|file):\/\/(\*|\*\.[^/*]+|[^/*]+)\/.*$/;
 const SAVE_WORDS = /\b(save|add|create|confirm|submit|delete|remove|apply|continue|approve|reject|send|pay|accept|publish|checkout|sign ?in|log ?in)\b/i;
 const SHOT_GAP = 4000;
 const QUEUE_MAX = 500;
+const RECENT_MAX = 5;
 
 let config = { ...DEFAULTS };
 let matchers = [];
 let extraKeys = [];
 let port = null;
 let lastShot = 0;
+let recent = {};
 const queue = [];
 
 /** Turns a match pattern like `https://*.example.com/*` into a RegExp. */
@@ -45,6 +48,37 @@ function recorded(url) {
   }
 }
 
+/** Whether a URL is recorded right now: on the list and not paused. */
+const active = (url) => !config.paused && recorded(url);
+
+/** Red REC badge on tabs that are being recorded, none elsewhere. */
+async function updateBadge(tabId, url) {
+  try {
+    await api.action.setBadgeText({ tabId, text: active(url) ? 'REC' : '' });
+  } catch (e) {}
+}
+
+async function updateAllBadges() {
+  for (const tab of await api.tabs.query({})) updateBadge(tab.id, tab.url);
+}
+
+/** Keeps a one-line summary (never bodies or field values) of the last events per tab, for the popup. */
+function remember(tab, ev) {
+  const what = {
+    page: () => ev.title || ev.url,
+    click: () => ev.text,
+    field: () => `changed ${ev.name}`,
+    submit: () => `form ${ev.text}`,
+    net: () => `${ev.method} ${ev.status || ev.error} ${new URL(ev.url).pathname}`,
+    console: () => `${ev.level}: ${ev.text}`,
+  }[ev.kind];
+  if (!what) return;
+  const list = recent[tab] || (recent[tab] = []);
+  list.push({ ts: Date.now(), kind: ev.kind, text: String(what()).slice(0, 120) });
+  if (list.length > RECENT_MAX) list.shift();
+  api.storage.session.set({ recent }).catch(() => {});
+}
+
 /** Runs the page scripts only on listed sites, so dashhound never even loads anywhere else. */
 async function registerScripts(patterns) {
   await api.scripting.unregisterContentScripts().catch(() => {});
@@ -61,6 +95,7 @@ async function loadConfig() {
   matchers = patterns.map(toRegExp);
   extraKeys = compileKeys(config.privateKeys);
   await registerScripts(patterns);
+  updateAllBadges();
   post({ config: { keepHours: config.keepHours, maxMB: config.maxMB } });
 }
 
@@ -73,7 +108,10 @@ function post(msg) {
 }
 
 /** Records one event for a tab. */
-const record = (tab, kind, data) => post({ event: { ts: Date.now(), tab, kind, ...data } });
+const record = (tab, kind, data) => {
+  post({ event: { ts: Date.now(), tab, kind, ...data } });
+  remember(tab, { kind, ...data });
+};
 
 /** Screenshot of the tab, only if it is the visible one in its window; at most one per SHOT_GAP. */
 async function shot(tabId, reason, delay) {
@@ -82,7 +120,7 @@ async function shot(tabId, reason, delay) {
   await new Promise((r) => setTimeout(r, delay));
   try {
     const tab = await api.tabs.get(tabId);
-    if (!tab.active || !recorded(tab.url)) return;
+    if (!tab.active || !active(tab.url)) return;
     const dataUrl = await api.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 50 });
     post({ shot: { ts: Date.now(), tab: tabId, reason, url: tab.url, dataUrl } });
   } catch (e) {}
@@ -104,9 +142,13 @@ function connect() {
   post({ config: { keepHours: config.keepHours, maxMB: config.maxMB } });
 }
 
-api.runtime.onMessage.addListener((msg, sender) => {
+api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg && msg.dashhoundStatus) {
+    sendResponse({ recorded: recorded(msg.dashhoundStatus), paused: config.paused });
+    return;
+  }
   const tab = sender.tab;
-  if (!msg || !msg.dashhound || !tab || !recorded(tab.url)) return;
+  if (!msg || !msg.dashhound || !tab || !active(tab.url)) return;
   const ev = msg.dashhound;
   if (ev.kind === 'net') {
     const max = config.maxBodyKB * 1024;
@@ -126,9 +168,17 @@ api.runtime.onMessage.addListener((msg, sender) => {
 });
 
 api.tabs.onUpdated.addListener((tabId, info, tab) => {
-  if (!info.url) return;
-  if (recorded(info.url)) record(tabId, 'page', { url: info.url, title: tab.title });
+  if (info.url || info.status) updateBadge(tabId, tab.url);
+  if (info.url && active(info.url)) record(tabId, 'page', { url: info.url, title: tab.title });
 });
 
-api.storage.onChanged.addListener(loadConfig);
+api.tabs.onRemoved.addListener((tabId) => {
+  if (!recent[tabId]) return;
+  delete recent[tabId];
+  api.storage.session.set({ recent }).catch(() => {});
+});
+
+api.action.setBadgeBackgroundColor({ color: '#dc2626' });
+api.storage.session.get('recent').then((s) => { recent = s.recent || {}; }).catch(() => {});
+api.storage.onChanged.addListener((changes, area) => { if (area === 'local') loadConfig(); });
 loadConfig().then(connect);
