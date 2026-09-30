@@ -1,6 +1,7 @@
 /**
  * Makes a request or response body safe to keep: secrets under sensitive keys become "[private]" (JSON and
- * form bodies), card-like numbers anywhere become "[private]", and the result is cut to `max` characters.
+ * form bodies; in an OAuth token exchange also the one-time `code`), card numbers anywhere become "[private]",
+ * and the result is cut to `max` characters.
  * Loaded by background.js; `node test/redact.test.js` checks it.
  */
 const SENSITIVE_KEY = /pass(word|wd)?|secret|token|authori[sz]ation|api[_-]?key|session|cookie|credential|ssn|cvv|cvc|card[_-]?number/i;
@@ -35,9 +36,11 @@ function redact(text, max = 32768) {
     out = JSON.stringify(scrub(JSON.parse(out)));
   } catch (e) {
     if (/^[^=&\s]+=[^&]*(&[^=&\s]+=[^&]*)*$/.test(out)) {
+      const oauth = /(^|&)grant_type=/.test(out);
       out = out.split('&').map((pair) => {
         const [k, ...v] = pair.split('=');
-        return SENSITIVE_KEY.test(decodeURIComponent(k)) ? `${k}=[private]` : `${k}=${v.join('=')}`;
+        const key = decodeURIComponent(k);
+        return SENSITIVE_KEY.test(key) || (oauth && /^code(_verifier)?$/.test(key)) ? `${k}=[private]` : `${k}=${v.join('=')}`;
       }).join('&');
     }
     out = hideCards(out);

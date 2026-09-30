@@ -6,6 +6,8 @@ assert.strictEqual(redact('{"email":"a@b.c","password":"hunter2"}'), '{"email":"
 assert.strictEqual(redact('{"user":{"accessToken":"x","name":"n"},"items":[{"apiKey":"k"}]}'), '{"user":{"accessToken":"[private]","name":"n"},"items":[{"apiKey":"[private]"}]}');
 assert.strictEqual(redact('{"note":"card 4111 1111 1111 1111 ok"}'), '{"note":"card [private] ok"}');
 assert.strictEqual(redact('user=ana&password=secret&x=1'), 'user=ana&password=[private]&x=1');
+assert.strictEqual(redact('code=abc&grant_type=authorization_code&client_id=app'), 'code=[private]&grant_type=authorization_code&client_id=app', 'OAuth code');
+assert.strictEqual(redact('code=SPRING&qty=2'), 'code=SPRING&qty=2', 'a promo code is not an OAuth code');
 assert.strictEqual(redact('plain text 4111111111111111'), 'plain text [private]');
 assert.strictEqual(redact('{"total":1250,"qty":3}'), '{"total":1250,"qty":3}');
 assert.strictEqual(redact('{"at":"1790781926346"}'), '{"at":"1790781926346"}', 'a ms timestamp is not a card');
