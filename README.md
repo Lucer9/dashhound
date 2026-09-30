@@ -75,7 +75,12 @@ Then open the extension's settings to choose which sites to record.
 ./dashhound log --json                # raw events
 ./dashhound shots                     # screenshots with their reason
 ./dashhound status                    # data folder, size vs. the MB cap, oldest/newest event, last hour, browser connected
+./dashhound report --since 30m -o bug.html   # one HTML file to attach to a bug report
 ```
+
+`report` takes the same `--since`, `--grep` and `--kind` as `log` and prints the path it wrote (default
+`dashhound-report.html`). The file has no external assets and opens offline: the timeline, screenshots inline, and
+each API call's bodies in a collapsible block. The bodies are already redacted, but read the file before you share it.
 
 ## Deleting recordings
 
@@ -116,7 +121,7 @@ everything over native messaging to `dashhound`, which appends one JSON Lines fi
 Capturing in the page rather than through the browser's network API is what makes bodies work the same in every
 browser: Chrome's Manifest V3 cannot read response bodies from an extension without attaching the debugger.
 
-Checks: `./dashhound selftest` (writer, loop limits, reader, MCP) and `node test/redact.test.js` (redaction).
+Checks: `./dashhound selftest` (writer, loop limits, reader, report, MCP) and `node test/redact.test.js` (redaction).
 
 ## Limits
 
