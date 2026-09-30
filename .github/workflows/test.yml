@@ -18,3 +18,5 @@ jobs:
       - run: node test/redact.test.js
       - run: for f in extension/*.js; do node --check "$f"; done
       - run: python -c "import json; json.load(open('extension/manifest.json'))"
+      # Mozilla's store linter; fails on errors. Expected warnings: Firefox ignores background.service_worker (it is for Chrome), and no Firefox for Android (it has no native messaging).
+      - run: npx --yes web-ext lint --source-dir extension

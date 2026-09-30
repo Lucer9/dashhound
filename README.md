@@ -89,7 +89,7 @@ Any MCP client works the same way: command `~/dashhound/dashhound`, argument `mc
 
 ## How it works
 
-`extension/` is a Manifest V3 extension (Firefox 128+, Chrome, Edge, Brave). The background registers two scripts,
+`extension/` is a Manifest V3 extension (Firefox 140+, Chrome, Edge, Brave). The background registers two scripts,
 only on the sites you list: `page.js` runs in the page itself and wraps `fetch` and `XMLHttpRequest` (reading a copy
 of each response, so the page's own reading is untouched) and catches console errors; `content.js` names clicks and
 field changes. `background.js` redacts bodies (`redact.js`), adds page loads, takes screenshots, and streams
