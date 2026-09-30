@@ -64,6 +64,20 @@ shows, then `./dashhound install --chrome-id <id>`.
 
 Then open the extension's settings to choose which sites to record.
 
+## The toolbar button
+
+A red `REC` badge on the toolbar icon means the current tab is on your site list and recording is on; no badge means
+it is not recorded. Click the icon for the popup:
+
+- the current site and whether it is recorded;
+- **Record this site** adds `<scheme>://<host>/*` to the list (any port) and offers to reload the tab, because the
+  scripts only reach pages loaded after the site is listed;
+- **Pause recording** / **Resume** stops all recording (events, page loads, screenshots) without touching the list.
+  The state is kept across browser restarts;
+- the last 5 events in this tab, one line each (field values and bodies are not shown), and a link to settings.
+
+It needs no extra permissions. The last events are kept only for the browser session (`storage.session`), in memory.
+
 ## Reading it
 
 ```sh
@@ -129,6 +143,7 @@ Checks: `./dashhound selftest` (writer, loop limits, reader, report, MCP) and `n
 - Requests made by web workers and service workers are not seen (only the page's own `fetch`/XHR).
 - Tabs that were open before a site was added to the list start recording after a reload.
 - `status` finds the running host with `ps`, so on systems without it (Windows) it reports the browser as "unknown".
+- Pausing stops what is recorded, not the page scripts: they stay injected on listed sites and simply have their events dropped.
 - Safari is not supported yet (its extensions package and talk to native apps differently).
 - Values typed into fields are recorded unless private: keep the site list to development and test environments.
 

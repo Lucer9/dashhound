@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>dashhound</title>
+<style>
+  body { font: 13px system-ui, sans-serif; margin: 12px; width: 320px; color: #1f2937; }
+  #site { font-weight: 600; word-break: break-all; }
+  #state { margin: 2px 0 10px; color: #6b7280; }
+  #state.rec { color: #dc2626; font-weight: 600; }
+  button { padding: 5px 12px; margin: 0 6px 6px 0; }
+  ul { list-style: none; padding: 0; margin: 4px 0 10px; font: 12px ui-monospace, monospace; }
+  li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  h2 { font-size: 12px; margin: 10px 0 0; color: #6b7280; text-transform: uppercase; }
+</style>
+<div id="site"></div>
+<div id="state"></div>
+<button id="add" hidden>Record this site</button>
+<button id="reload" hidden>Reload tab</button>
+<button id="pause"></button>
+<h2>Last events in this tab</h2>
+<ul id="events"></ul>
+<a href="#" id="settings">Settings</a>
+<script src="popup.js"></script>
