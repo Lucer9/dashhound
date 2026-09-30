@@ -26,8 +26,17 @@ function toRegExp(pattern) {
   return new RegExp(`^${esc}$`);
 }
 
-/** Whether a URL is on the record list. */
-const recorded = (url) => !!url && matchers.some((r) => r.test(url));
+/** Whether a URL is on the record list. Ports are ignored, as in browser match patterns. */
+function recorded(url) {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    const bare = `${u.protocol}//${u.hostname}${u.pathname}${u.search}`;
+    return matchers.some((r) => r.test(bare));
+  } catch (e) {
+    return false;
+  }
+}
 
 async function loadConfig() {
   config = { ...DEFAULTS, ...(await api.storage.local.get(Object.keys(DEFAULTS))) };
