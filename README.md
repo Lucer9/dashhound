@@ -5,6 +5,8 @@ your own app. dashhound quietly keeps a local log of what you did on the sites y
 (pages, clicks, field changes, API calls, errors) and takes a screenshot when something worth seeing happens.
 When something breaks, you, or your coding agent, can look back instead of trying to reproduce it.
 
+The story behind it, and Dash the pixel hound: [carlosaguirre.workers.dev/work/dashhound](https://www.carlosaguirre.workers.dev/work/dashhound/)
+
 ```
 14:02:11 tab 3 page    http://localhost:3000/cart  Your cart
 14:02:15 tab 3 field   Quantity = '0' on /cart
