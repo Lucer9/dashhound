@@ -49,11 +49,26 @@ Shadow DOM is fine: clicks and fields inside open shadow roots are named from th
 
 Needs Python 3.8+ (standard library only).
 
+With pipx, no clone:
+
 ```sh
-git clone <this repo> ~/dashhound && cd ~/dashhound
+pipx install git+https://github.com/Lucer9/dashhound
+dashhound install            # registers the local host with Firefox
+dashhound pack               # builds ./dist/dashhound.xpi in the current folder
+```
+
+Or from a clone (the commands below are written for this way; with pipx drop the `./`):
+
+```sh
+git clone https://github.com/Lucer9/dashhound ~/dashhound && cd ~/dashhound
 ./dashhound install          # registers the local host with Firefox
 ./dashhound pack             # builds dist/dashhound.xpi
 ```
+
+Either way, `install` writes a small launcher, `~/.local/share/dashhound/dashhound-host`, that runs dashhound with
+the Python it was installed for, and registers that with the browser. Run `install` again if you move the clone or
+reinstall with a different Python. Unpacked Chrome loading needs a folder: with pipx the extension is at
+`<pipx venv>/share/dashhound/extension`, or unzip the `.xpi`.
 
 **Firefox:** until dashhound is signed on addons.mozilla.org, load it in Firefox Developer Edition or Nightly with
 `xpinstall.signatures.required = false` (about:config), then *Install Add-on From File* → `dist/dashhound.xpi`.
@@ -115,10 +130,11 @@ open. The MB cap shown is the one the extension last sent; until then it shows t
 ## For coding agents (MCP)
 
 ```sh
-claude mcp add dashhound -- ~/dashhound/dashhound mcp            # Claude Code
+claude mcp add dashhound -- dashhound mcp                        # Claude Code, installed with pipx
+claude mcp add dashhound -- ~/dashhound/dashhound mcp            # Claude Code, from a clone
 ```
 
-Any MCP client works the same way: command `~/dashhound/dashhound`, argument `mcp`. Tools:
+Any MCP client works the same way: command `dashhound` (or `~/dashhound/dashhound`), argument `mcp`. Tools:
 
 - `recent_activity(since?, grep?, kinds?, bodies?)`: the timeline as text, newest last; `bodies` adds what each
   API call sent and got back.

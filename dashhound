@@ -21,6 +21,7 @@ import base64
 import html
 import json
 import os
+import shlex
 import struct
 import subprocess
 import sys
@@ -33,6 +34,7 @@ EXT_ID = "dashhound@dashhound"
 HERE = os.path.dirname(os.path.realpath(__file__))
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "dashhound")
 CONFIG = "config.json"
+SHARED = os.path.join(sys.prefix, "share", "dashhound")  # where pip puts the extension when installed without a clone
 UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
 
 
@@ -358,10 +360,28 @@ def mcp():
             sys.stdout.flush()
 
 
+def extension_dir():
+    """The extension folder: next to this file in a clone, under the install prefix when installed with pip/pipx."""
+    for base in (HERE, SHARED):
+        if os.path.isfile(os.path.join(base, "extension", "manifest.json")):
+            return os.path.join(base, "extension")
+    return None
+
+
+def host_wrapper():
+    """Writes a small executable that runs this file with the Python it was installed for, and returns its path.
+    Browsers need a path they can execute directly; inside a pipx virtualenv `__file__` may not be one."""
+    os.makedirs(DATA, exist_ok=True)
+    path = os.path.join(DATA, "dashhound-host")
+    with open(path, "w") as f:
+        f.write("#!/bin/sh\nexec %s %s \"$@\"\n" % (shlex.quote(sys.executable), shlex.quote(os.path.realpath(__file__))))
+    os.chmod(path, 0o755)
+    return path
+
+
 def install(chrome_id=None):
-    """Registers this script as the `dashhound` native messaging host for Firefox (and Chrome when given its id)."""
-    me = os.path.realpath(__file__)
-    os.chmod(me, 0o755)
+    """Registers a wrapper around this script as the `dashhound` native messaging host for Firefox (and Chrome when given its id)."""
+    me = host_wrapper()
     mac = sys.platform == "darwin"
     targets = [(os.path.expanduser("~/Library/Application Support/Mozilla/NativeMessagingHosts" if mac else "~/.mozilla/native-messaging-hosts"),
                 {"allowed_extensions": [EXT_ID]})]
@@ -376,11 +396,16 @@ def install(chrome_id=None):
 
 
 def pack():
-    os.makedirs(os.path.join(HERE, "dist"), exist_ok=True)
-    out = os.path.join(HERE, "dist", "dashhound.xpi")
+    """Zips the extension to dist/dashhound.xpi (next to the clone, or in the current folder when installed)."""
+    src = extension_dir()
+    if not src:
+        sys.exit("dashhound: cannot find the extension folder; run `pack` from a clone of the repository")
+    dist = os.path.join(HERE if src == os.path.join(HERE, "extension") else os.getcwd(), "dist")
+    os.makedirs(dist, exist_ok=True)
+    out = os.path.join(dist, "dashhound.xpi")
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for name in sorted(os.listdir(os.path.join(HERE, "extension"))):
-            z.write(os.path.join(HERE, "extension", name), name)
+        for name in sorted(os.listdir(src)):
+            z.write(os.path.join(src, name), name)
     print(out)
 
 
@@ -451,6 +476,9 @@ def selftest():
     assert clear() == (1, 0) and events("1d") == []
     assert "oldest:      no events" in status_text()
     assert host_running() in (True, False, None)
+    wrapper = host_wrapper()
+    assert os.access(wrapper, os.X_OK) and sys.executable in open(wrapper).read(), "host wrapper is executable"
+    assert extension_dir(), "extension folder found"
     print("selftest ok")
 
 
