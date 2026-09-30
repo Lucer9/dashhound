@@ -104,14 +104,17 @@ api.tabs.onRemoved.addListener((tabId) => tabUrls.delete(tabId));
 /** The page a request belongs to: the tab's current URL (the request itself may go to an API on another host). */
 const pageOf = (d) => tabUrls.get(d.tabId) || d.documentUrl || d.initiator;
 
+/** CORS preflights and requests the browser cancelled on navigation are the browser's doing, not the person's. */
+const noise = (d) => d.method === 'OPTIONS' || /ABORTED/i.test(d.error || '');
+
 api.webRequest.onCompleted.addListener((d) => {
-  if (d.tabId < 0 || !recorded(pageOf(d))) return;
+  if (d.tabId < 0 || noise(d) || !recorded(pageOf(d))) return;
   record(d.tabId, 'net', { method: d.method, url: d.url, status: d.statusCode });
   if (d.statusCode >= 400) shot(d.tabId, `HTTP ${d.statusCode} ${d.method} ${new URL(d.url).pathname}`, 900);
 }, { urls: ['<all_urls>'], types: ['xmlhttprequest'] });
 
 api.webRequest.onErrorOccurred.addListener((d) => {
-  if (d.tabId >= 0 && recorded(pageOf(d))) record(d.tabId, 'net', { method: d.method, url: d.url, error: d.error });
+  if (d.tabId >= 0 && !noise(d) && recorded(pageOf(d))) record(d.tabId, 'net', { method: d.method, url: d.url, error: d.error });
 }, { urls: ['<all_urls>'], types: ['xmlhttprequest'] });
 
 api.storage.onChanged.addListener(loadConfig);
