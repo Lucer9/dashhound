@@ -24,7 +24,7 @@ import tempfile
 import time
 import zipfile
 
-VERSION = "0.2.1"
+VERSION = "0.3.0"
 EXT_ID = "dashhound@dashhound"
 HERE = os.path.dirname(os.path.realpath(__file__))
 DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "dashhound")
@@ -39,6 +39,7 @@ def write(msg, state):
     """Host side: stores one message from the extension (event, screenshot or config) and prunes old files."""
     if "config" in msg:
         state["keep_hours"] = max(1, int(msg["config"].get("keepHours") or 24))
+        state["max_mb"] = max(10, int(msg["config"].get("maxMB") or 500))
         return
     os.makedirs(shots_dir(), exist_ok=True)
     ev = msg.get("event")
@@ -54,20 +55,26 @@ def write(msg, state):
         return
     with open(os.path.join(DATA, time.strftime("%Y-%m-%d-%H") + ".jsonl"), "a") as f:
         f.write(json.dumps(ev) + "\n")
-    if time.time() - state.get("pruned", 0) > 600:
+    state["writes"] = state.get("writes", 0) + 1
+    if state["writes"] % 200 == 0 or time.time() - state.get("pruned", 0) > 600:
         state["pruned"] = time.time()
-        prune(state.get("keep_hours", 24))
+        prune(state.get("keep_hours", 24), state.get("max_mb", 500))
 
 
-def prune(keep_hours):
-    cutoff = time.time() - keep_hours * 3600
+def prune(keep_hours, max_mb=500):
+    """Loop recording: drops files older than keep_hours, then the oldest files until the total fits max_mb."""
+    files = []
     for d in (DATA, shots_dir()):
-        if not os.path.isdir(d):
-            continue
-        for name in os.listdir(d):
-            full = os.path.join(d, name)
-            if os.path.isfile(full) and os.path.getmtime(full) < cutoff:
-                os.unlink(full)
+        if os.path.isdir(d):
+            files += [os.path.join(d, n) for n in os.listdir(d) if os.path.isfile(os.path.join(d, n))]
+    files.sort(key=os.path.getmtime)
+    cutoff = time.time() - keep_hours * 3600
+    total = sum(os.path.getsize(f) for f in files)
+    for f in files:
+        if os.path.getmtime(f) >= cutoff and total <= max_mb * 1024 * 1024:
+            break
+        total -= os.path.getsize(f)
+        os.unlink(f)
 
 
 def host():
@@ -110,7 +117,23 @@ def events(since="1h", grep=None, kinds=None):
                 if e.get("ts", 0) / 1000 >= start and (not kinds or e.get("kind") in kinds):
                     out.append(e)
     out.sort(key=lambda e: e["ts"])
-    return [e for e in out if not grep or grep.lower() in line_of(e).lower()]
+    return [e for e in out if not grep or grep.lower() in (line_of(e) + str(e.get("req") or "") + str(e.get("res") or "")).lower()]
+
+
+def size(text):
+    n = len(text or "")
+    return f"{n}B" if n < 1024 else f"{n / 1024:.1f}KB"
+
+
+def with_bodies(e, limit=None):
+    """A net event's line plus its request and response bodies, indented."""
+    out = line_of(e)
+    for key, label in (("req", "sent"), ("res", "got ")):
+        body = e.get(key)
+        if body:
+            body = body if limit is None or len(body) <= limit else body[:limit] + f"…[{len(body) - limit} more chars]"
+            out += f"\n    {label} {body}"
+    return out
 
 
 def line_of(e):
@@ -125,7 +148,8 @@ def line_of(e):
     elif k == "submit":
         what = f"form {e.get('text')} on {e.get('path')}"
     elif k == "net":
-        what = f"{e.get('method')} {e.get('status') or e.get('error')} {e.get('url')}"
+        sizes = " ".join(f"{label} {size(e[key])}" for key, label in (("req", "sent"), ("res", "got")) if e.get(key))
+        what = f"{e.get('method')} {e.get('status') or e.get('error')} {e.get('url')}" + (f"  ({sizes})" if sizes else "")
     elif k == "console":
         what = f"{e.get('level')}: {e.get('text')}"
     elif k == "shot":
@@ -135,8 +159,8 @@ def line_of(e):
     return f"{time.strftime('%H:%M:%S', time.localtime(e['ts'] / 1000))} tab {e.get('tab')} {k:<7} {what}"
 
 
-def timeline(since="30m", grep=None, kinds=None, limit=400):
-    lines = [line_of(e) for e in events(since, grep, kinds)]
+def timeline(since="30m", grep=None, kinds=None, limit=400, bodies=False, body_limit=2000):
+    lines = [with_bodies(e, body_limit) if bodies else line_of(e) for e in events(since, grep, kinds)]
     if len(lines) > limit:
         lines = [f"... {len(lines) - limit} earlier events not shown"] + lines[-limit:]
     return "\n".join(lines) or f"nothing recorded in the last {since}"
@@ -147,8 +171,8 @@ TOOLS = [
         "name": "recent_activity",
         "description": "What the user did in their browser recently, oldest first: pages opened, clicks (by the words "
                        "on the button/link), field changes (name = value; private fields hidden), API calls with "
-                       "status, console errors, and screenshots taken at key moments. Use it before asking the user "
-                       "what they did or what went wrong.",
+                       "status and, on request, their bodies, console errors, and screenshots taken at key moments. "
+                       "Use it before asking the user what they did or what went wrong.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -156,6 +180,7 @@ TOOLS = [
                 "grep": {"type": "string", "description": "Only lines containing this text (case-insensitive)."},
                 "kinds": {"type": "array", "items": {"type": "string", "enum": ["page", "click", "field", "submit", "net", "console", "shot"]},
                           "description": "Only these kinds of events."},
+                "bodies": {"type": "boolean", "description": "Include what each API call sent and got back (secrets already hidden, cut to 2000 chars). Useful with grep or kinds=['net']."},
             },
         },
     },
@@ -170,7 +195,7 @@ TOOLS = [
 def call_tool(name, args):
     """Runs one MCP tool; returns MCP content items."""
     if name == "recent_activity":
-        return [{"type": "text", "text": timeline(args.get("since") or "30m", args.get("grep"), args.get("kinds"))}]
+        return [{"type": "text", "text": timeline(args.get("since") or "30m", args.get("grep"), args.get("kinds"), bodies=bool(args.get("bodies")))}]
     if name == "get_screenshot":
         path = os.path.realpath(args.get("file", ""))
         if not path.startswith(os.path.realpath(shots_dir()) + os.sep) or not os.path.isfile(path):
@@ -264,11 +289,25 @@ def selftest():
     assert img["result"]["content"][0]["type"] == "image"
     bad = mcp_reply({"id": 5, "method": "tools/call", "params": {"name": "get_screenshot", "arguments": {"file": "/etc/passwd"}}})
     assert bad["result"]["isError"]
+    write({"event": {"ts": now + 3, "tab": 1, "kind": "net", "method": "POST", "url": "http://l/api/promo", "status": 422,
+                     "req": '{"code":"SPRING"}', "res": '{"error":"promo expired"}'}}, state)
+    assert "(sent 17B got 25B)" in timeline("5m", kinds=["net"])
+    assert events("5m", grep="promo expired")[0]["status"] == 422
+    assert "got  {\"error\":\"promo expired\"}" in timeline("5m", kinds=["net"], bodies=True)
+    withb = mcp_reply({"id": 6, "method": "tools/call", "params": {"name": "recent_activity", "arguments": {"since": "5m", "bodies": True}}})
+    assert "promo expired" in withb["result"]["content"][0]["text"]
     old = os.path.join(DATA, "2000-01-01-00.jsonl")
     open(old, "w").close()
     os.utime(old, (0, 0))
     prune(2)
     assert not os.path.exists(old)
+    big = [os.path.join(DATA, f"2099-01-01-0{i}.jsonl") for i in range(3)]
+    for i, f in enumerate(big):
+        with open(f, "w") as h:
+            h.write("x" * 6 * 1024 * 1024)
+        os.utime(f, (time.time() - 30 + i, time.time() - 30 + i))
+    prune(24, max_mb=10)
+    assert [os.path.exists(f) for f in big] == [False, False, True], "size cap drops the oldest first"
     print("selftest ok")
 
 
@@ -282,6 +321,7 @@ def main():
     s.add_argument("--grep")
     s.add_argument("--kind", help="comma-separated: page,click,field,submit,net,console,shot")
     s.add_argument("--json", action="store_true", help="raw events, one JSON object per line")
+    s.add_argument("--bodies", action="store_true", help="print what each API call sent and got back under its line")
     s = sub.add_parser("shots", help="list screenshots")
     s.add_argument("--since", default="1h")
     sub.add_parser("mcp", help="MCP server on stdio")
@@ -296,7 +336,7 @@ def main():
             for e in events(a.since, a.grep, kinds):
                 print(json.dumps(e))
         else:
-            print(timeline(a.since, a.grep, kinds, limit=10 ** 9))
+            print(timeline(a.since, a.grep, kinds, limit=10 ** 9, bodies=a.bodies, body_limit=None))
     elif a.cmd == "shots":
         print(timeline(a.since, kinds=["shot"], limit=10 ** 9))
     elif a.cmd == "mcp":

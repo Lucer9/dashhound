@@ -19,10 +19,12 @@ When something breaks, you, or your coding agent, can look back instead of tryin
 - **Local only.** Everything is written to `~/.local/share/dashhound` by a small local program. No account, no
   server, no upload.
 - **Only the sites you list.** Default: `http://localhost/*` and `http://127.0.0.1/*`. Add your staging or QA
-  hosts in the extension's settings.
-- **Private by default.** Password and card fields, anything matching your private selectors, and any value that
-  looks like a card number are stored as `[private]`.
-- **Short memory.** Files older than 24 hours (configurable) are deleted. It is a dashcam, not an archive.
+  hosts in the extension's settings. dashhound's scripts are only injected there; other sites never run them.
+- **Private by default.** Password and card fields, anything matching your private selectors, values under keys
+  like `password`, `token`, `secret`, `authorization`, `apiKey`, `session` or `cookie`, and anything that passes a
+  card-number checksum are stored as `[private]`. Request headers are never recorded.
+- **Loop recording.** Like a dashcam: the oldest recording is deleted when either limit is hit, 24 hours or 500 MB
+  by default (both configurable). It is a dashcam, not an archive.
 - **Readable by agents.** `dashhound mcp` is an MCP server, so Claude Code, Cursor or any MCP client can ask "what
   did the user just do, and what failed?" before asking you.
 
@@ -34,7 +36,7 @@ When something breaks, you, or your coding agent, can look back instead of tryin
 | `click` | you click | the words on the button or link (aria-label / title / text), or `field <name>` |
 | `field` | a field changes and loses focus, or a select/checkbox changes | `name = value` |
 | `submit` | a form is submitted | the form's name |
-| `net` | an XHR/fetch finishes | method, status (or error), URL |
+| `net` | a `fetch` or `XMLHttpRequest` finishes | method, status (or error), URL, time, and the request and response bodies (text only, redacted, 32 KB each by default) |
 | `console` | `console.error`, an uncaught error, an unhandled rejection | the message |
 | `shot` | after a save-type click (save, add, confirm, delete, submit, pay…), a form submit, HTTP ≥ 400, or a console error | a JPEG of the tab, at most one every 4 s, only of the tab on screen |
 
@@ -65,6 +67,8 @@ Then open the extension's settings to choose which sites to record.
 ./dashhound log                       # last hour
 ./dashhound log --since 10m --kind click,net,console
 ./dashhound log --grep checkout --since 2h
+./dashhound log --kind net --bodies   # what each API call sent and got back
+./dashhound log --grep expired        # searches bodies too
 ./dashhound log --json                # raw events
 ./dashhound shots                     # screenshots with their reason
 ```
@@ -77,20 +81,29 @@ claude mcp add dashhound -- ~/dashhound/dashhound mcp            # Claude Code
 
 Any MCP client works the same way: command `~/dashhound/dashhound`, argument `mcp`. Tools:
 
-- `recent_activity(since?, grep?, kinds?)`: the timeline as text, newest last.
+- `recent_activity(since?, grep?, kinds?, bodies?)`: the timeline as text, newest last; `bodies` adds what each
+  API call sent and got back.
 - `get_screenshot(file)`: one of the screenshots listed in the timeline, as an image.
 
 ## How it works
 
-`extension/` is a Manifest V3 extension (Firefox 128+, Chromium). `page.js` runs in the page to catch console
-errors; `content.js` names clicks and field changes; `background.js` adds page loads and API calls, applies the
-site list, takes screenshots, and streams everything over native messaging to `dashhound`, which appends one JSON
-Lines file per hour. `dashhound selftest` checks the writer, the reader and the MCP server.
+`extension/` is a Manifest V3 extension (Firefox 128+, Chrome, Edge, Brave). The background registers two scripts,
+only on the sites you list: `page.js` runs in the page itself and wraps `fetch` and `XMLHttpRequest` (reading a copy
+of each response, so the page's own reading is untouched) and catches console errors; `content.js` names clicks and
+field changes. `background.js` redacts bodies (`redact.js`), adds page loads, takes screenshots, and streams
+everything over native messaging to `dashhound`, which appends one JSON Lines file per hour and runs the loop.
+
+Capturing in the page rather than through the browser's network API is what makes bodies work the same in every
+browser: Chrome's Manifest V3 cannot read response bodies from an extension without attaching the debugger.
+
+Checks: `./dashhound selftest` (writer, loop limits, reader, MCP) and `node test/redact.test.js` (redaction).
 
 ## Limits
 
 - Screenshots need the tab to be the visible one in its window (browser rule).
-- Request and response bodies are not recorded; status and URL are.
+- Requests made by web workers and service workers are not seen (only the page's own `fetch`/XHR).
+- Tabs that were open before a site was added to the list start recording after a reload.
+- Safari is not supported yet (its extensions package and talk to native apps differently).
 - Values typed into fields are recorded unless private: keep the site list to development and test environments.
 
 ## License

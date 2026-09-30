@@ -19,6 +19,11 @@
 </label>
 <textarea id="private" rows="3"></textarea>
 <label><input type="checkbox" id="shots"> Screenshots after save-type clicks, form submits, HTTP errors and console errors</label>
-<label for="keepHours">Keep the log for <input type="number" id="keepHours" min="1" max="720"> hours</label>
+<label><input type="checkbox" id="bodies"> Request and response bodies, up to <input type="number" id="maxBodyKB" min="1" max="1024"> KB each
+  <small>Secrets under keys like password, token, secret, authorization, api key, session and cookie are hidden, and so are card numbers. Headers are never recorded.</small>
+</label>
+<label>Keep the last <input type="number" id="keepHours" min="1" max="720"> hours, and at most <input type="number" id="maxMB" min="10" max="100000"> MB
+  <small>Whichever limit is reached first, the oldest recording is deleted, like a dashcam loop.</small>
+</label>
 <button id="save">Save</button><span id="saved"></span>
 <script src="options.js"></script>
