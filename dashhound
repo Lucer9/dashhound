@@ -18,6 +18,7 @@ under the data directory and deletes anything older than the configured hours. N
 """
 import argparse
 import base64
+import html
 import json
 import os
 import struct
@@ -241,6 +242,50 @@ def timeline(since="30m", grep=None, kinds=None, limit=400, bodies=False, body_l
     return "\n".join(lines) or f"nothing recorded in the last {since}"
 
 
+REPORT_CSS = ("body{font:14px/1.4 system-ui,sans-serif;margin:2em;max-width:70em}"
+              "li{list-style:none;margin:.3em 0}code{font:13px monospace}.bad{color:#b00020}"
+              "details{margin:.2em 0 .2em 2em}pre{white-space:pre-wrap;word-break:break-all;background:#f4f4f4;padding:.5em}"
+              "img{max-width:100%;border:1px solid #ccc;margin:.3em 0 .3em 2em;display:block}")
+
+
+def shot_uri(path):
+    """A recorded screenshot as a data: URI, or None if it is gone or is not inside the screenshots folder."""
+    real = os.path.realpath(path or "")
+    if not real.startswith(os.path.realpath(shots_dir()) + os.sep) or not os.path.isfile(real):
+        return None
+    with open(real, "rb") as f:
+        return "data:image/jpeg;base64," + base64.b64encode(f.read()).decode()
+
+
+def report(since="30m", grep=None, kinds=None):
+    """One self-contained HTML page of the timeline: screenshots inline, API bodies collapsible. Every value is escaped."""
+    esc = html.escape
+    items = []
+    for e in events(since, grep, kinds):
+        k = e.get("kind")
+        bad = k == "console" or (k == "net" and (e.get("error") or (e.get("status") or 0) >= 400))
+        item = f'<li><code class="bad">{esc(line_of(e))}</code>' if bad else f"<li><code>{esc(line_of(e))}</code>"
+        if k == "net":
+            for key, label in (("req", "sent"), ("res", "got")):
+                if e.get(key):
+                    item += f"<details><summary>{label} {esc(size(e[key]))}</summary><pre>{esc(str(e[key]))}</pre></details>"
+        if k == "shot":
+            uri = shot_uri(e.get("file"))
+            item += f'<img alt="{esc(str(e.get("reason")))}" src="{uri}">' if uri else "<details><summary>screenshot no longer on disk</summary></details>"
+        items.append(item + "</li>")
+    title = f"dashhound: last {since}" + (f", matching {grep}" if grep else "")
+    return (f'<!doctype html><meta charset="utf-8"><title>{esc(title)}</title><style>{REPORT_CSS}</style>'
+            f"<h1>{esc(title)}</h1><p>{len(items)} events, made {esc(time.strftime('%Y-%m-%d %H:%M:%S'))}</p>"
+            f'<ul style="padding:0">{"".join(items) or "<li>nothing recorded</li>"}</ul>')
+
+
+def write_report(path, since, grep=None, kinds=None):
+    """Writes report() to `path` and returns the path."""
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(report(since, grep, kinds))
+    return path
+
+
 TOOLS = [
     {
         "name": "recent_activity",
@@ -371,6 +416,14 @@ def selftest():
     assert "got  {\"error\":\"promo expired\"}" in timeline("5m", kinds=["net"], bodies=True)
     withb = mcp_reply({"id": 6, "method": "tools/call", "params": {"name": "recent_activity", "arguments": {"since": "5m", "bodies": True}}})
     assert "promo expired" in withb["result"]["content"][0]["text"]
+    write({"event": {"ts": now + 4, "tab": 1, "kind": "console", "level": "error", "text": "<script>alert(1)</script>"}}, state)
+    out = os.path.join(DATA, "report.html")
+    write_report(out, "5m")
+    page = open(out, encoding="utf-8").read()
+    assert "'Save' (button) on /a" in page and "data:image/jpeg;base64," in page and "promo expired" in page
+    assert "<script>alert(1)</script>" not in page and "&lt;script&gt;alert(1)&lt;/script&gt;" in page
+    write_report(out, "5m", kinds=["net"])
+    assert "Save" not in open(out, encoding="utf-8").read()
     old = os.path.join(DATA, "2000-01-01-00.jsonl")
     open(old, "w").close()
     os.utime(old, (0, 0))
@@ -412,6 +465,11 @@ def main():
     s.add_argument("--kind", help="comma-separated: page,click,field,submit,net,console,shot")
     s.add_argument("--json", action="store_true", help="raw events, one JSON object per line")
     s.add_argument("--bodies", action="store_true", help="print what each API call sent and got back under its line")
+    s = sub.add_parser("report", help="write a self-contained HTML timeline to attach to a bug report")
+    s.add_argument("--since", default="30m")
+    s.add_argument("--grep")
+    s.add_argument("--kind", help="comma-separated: page,click,field,submit,net,console,shot")
+    s.add_argument("-o", "--output", default="dashhound-report.html")
     s = sub.add_parser("shots", help="list screenshots")
     s.add_argument("--since", default="1h")
     s = sub.add_parser("clear", help="delete recordings (all, or only the last N minutes)")
@@ -431,6 +489,8 @@ def main():
                 print(json.dumps(e))
         else:
             print(timeline(a.since, a.grep, kinds, limit=10 ** 9, bodies=a.bodies, body_limit=None))
+    elif a.cmd == "report":
+        print(os.path.abspath(write_report(a.output, a.since, a.grep, a.kind.split(",") if a.kind else None)))
     elif a.cmd == "shots":
         print(timeline(a.since, kinds=["shot"], limit=10 ** 9))
     elif a.cmd == "clear":
