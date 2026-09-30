@@ -1,6 +1,7 @@
-# tabcam
+# dashhound
 
-**A dashcam for your dev browser.** tabcam quietly keeps a local log of what you did on the sites you choose
+**A dashcam for your dev browser.** Named for dogfooding (and for a dog): the hound that rides along while you use
+your own app. dashhound quietly keeps a local log of what you did on the sites you choose
 (pages, clicks, field changes, API calls, errors) and takes a screenshot when something worth seeing happens.
 When something breaks, you, or your coding agent, can look back instead of trying to reproduce it.
 
@@ -10,19 +11,19 @@ When something breaks, you, or your coding agent, can look back instead of tryin
 14:02:18 tab 3 field   Promo code = 'SPRING' on /cart
 14:02:19 tab 3 click   'Apply' (button) on /cart
 14:02:19 tab 3 net     POST 422 http://localhost:3000/api/cart/promo
-14:02:20 tab 3 shot    HTTP 422 POST /api/cart/promo -> ~/.local/share/tabcam/shots/20260930-140220-3.jpg
+14:02:20 tab 3 shot    HTTP 422 POST /api/cart/promo -> ~/.local/share/dashhound/shots/20260930-140220-3.jpg
 14:02:24 tab 3 click   'Checkout' (button) on /cart
 14:02:24 tab 3 console uncaught: TypeError: Cannot read properties of undefined (reading 'total')
 ```
 
-- **Local only.** Everything is written to `~/.local/share/tabcam` by a small local program. No account, no
+- **Local only.** Everything is written to `~/.local/share/dashhound` by a small local program. No account, no
   server, no upload.
 - **Only the sites you list.** Default: `http://localhost/*` and `http://127.0.0.1/*`. Add your staging or QA
   hosts in the extension's settings.
 - **Private by default.** Password and card fields, anything matching your private selectors, and any value that
   looks like a card number are stored as `[private]`.
 - **Short memory.** Files older than 24 hours (configurable) are deleted. It is a dashcam, not an archive.
-- **Readable by agents.** `tabcam mcp` is an MCP server, so Claude Code, Cursor or any MCP client can ask "what
+- **Readable by agents.** `dashhound mcp` is an MCP server, so Claude Code, Cursor or any MCP client can ask "what
   did the user just do, and what failed?" before asking you.
 
 ## What it records
@@ -44,37 +45,37 @@ Shadow DOM is fine: clicks and fields inside open shadow roots are named from th
 Needs Python 3.8+ (standard library only).
 
 ```sh
-git clone <this repo> ~/tabcam && cd ~/tabcam
-./tabcam install          # registers the local host with Firefox
-./tabcam pack             # builds dist/tabcam.xpi
+git clone <this repo> ~/dashhound && cd ~/dashhound
+./dashhound install          # registers the local host with Firefox
+./dashhound pack             # builds dist/dashhound.xpi
 ```
 
-**Firefox:** until tabcam is signed on addons.mozilla.org, load it in Firefox Developer Edition or Nightly with
-`xpinstall.signatures.required = false` (about:config), then *Install Add-on From File* → `dist/tabcam.xpi`.
+**Firefox:** until dashhound is signed on addons.mozilla.org, load it in Firefox Developer Edition or Nightly with
+`xpinstall.signatures.required = false` (about:config), then *Install Add-on From File* → `dist/dashhound.xpi`.
 Or, for a session, `about:debugging` → *Load Temporary Add-on* → `extension/manifest.json`.
 
 **Chrome / Edge / Brave:** `chrome://extensions` → Developer mode → *Load unpacked* → `extension/`. Copy the id it
-shows, then `./tabcam install --chrome-id <id>`.
+shows, then `./dashhound install --chrome-id <id>`.
 
 Then open the extension's settings to choose which sites to record.
 
 ## Reading it
 
 ```sh
-./tabcam log                       # last hour
-./tabcam log --since 10m --kind click,net,console
-./tabcam log --grep checkout --since 2h
-./tabcam log --json                # raw events
-./tabcam shots                     # screenshots with their reason
+./dashhound log                       # last hour
+./dashhound log --since 10m --kind click,net,console
+./dashhound log --grep checkout --since 2h
+./dashhound log --json                # raw events
+./dashhound shots                     # screenshots with their reason
 ```
 
 ## For coding agents (MCP)
 
 ```sh
-claude mcp add tabcam -- ~/tabcam/tabcam mcp            # Claude Code
+claude mcp add dashhound -- ~/dashhound/dashhound mcp            # Claude Code
 ```
 
-Any MCP client works the same way: command `~/tabcam/tabcam`, argument `mcp`. Tools:
+Any MCP client works the same way: command `~/dashhound/dashhound`, argument `mcp`. Tools:
 
 - `recent_activity(since?, grep?, kinds?)`: the timeline as text, newest last.
 - `get_screenshot(file)`: one of the screenshots listed in the timeline, as an image.
@@ -83,8 +84,8 @@ Any MCP client works the same way: command `~/tabcam/tabcam`, argument `mcp`. To
 
 `extension/` is a Manifest V3 extension (Firefox 128+, Chromium). `page.js` runs in the page to catch console
 errors; `content.js` names clicks and field changes; `background.js` adds page loads and API calls, applies the
-site list, takes screenshots, and streams everything over native messaging to `tabcam`, which appends one JSON
-Lines file per hour. `tabcam selftest` checks the writer, the reader and the MCP server.
+site list, takes screenshots, and streams everything over native messaging to `dashhound`, which appends one JSON
+Lines file per hour. `dashhound selftest` checks the writer, the reader and the MCP server.
 
 ## Limits
 

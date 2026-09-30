@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "tabcam",
-  "version": "0.1.1",
+  "name": "dashhound",
+  "version": "0.2.0",
   "description": "A dashcam for your dev browser: a local log of what you did, for you and your coding agent.",
   "permissions": ["nativeMessaging", "storage", "tabs", "webRequest"],
   "host_permissions": ["<all_urls>"],
@@ -12,5 +12,5 @@
   ],
   "options_ui": { "page": "options.html", "open_in_tab": false },
   "icons": { "48": "icon.svg", "96": "icon.svg" },
-  "browser_specific_settings": { "gecko": { "id": "tabcam@tabcam", "strict_min_version": "128.0" } }
+  "browser_specific_settings": { "gecko": { "id": "dashhound@dashhound", "strict_min_version": "128.0" } }
 }

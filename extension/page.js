@@ -3,8 +3,8 @@
  * through window.postMessage. It records nothing itself; background.js decides whether this site is recorded.
  */
 (() => {
-  if (window.__tabcamHooked) return;
-  window.__tabcamHooked = true;
+  if (window.__dashhoundHooked) return;
+  window.__dashhoundHooked = true;
 
   /** Short readable text for a logged value. */
   const text = (v) => {
@@ -12,7 +12,7 @@
     if (v instanceof Error) return v.stack || String(v);
     try { return JSON.stringify(v); } catch (e) { return String(v); }
   };
-  const send = (level, parts) => window.postMessage({ __tabcam: { kind: 'console', level, text: parts.map(text).join(' ').slice(0, 1000) } }, '*');
+  const send = (level, parts) => window.postMessage({ __dashhound: { kind: 'console', level, text: parts.map(text).join(' ').slice(0, 1000) } }, '*');
 
   const original = console.error;
   console.error = function (...args) {

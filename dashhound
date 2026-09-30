@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""tabcam: a dashcam for your dev browser.
+"""dashhound: a dashcam for your dev browser.
 
 The browser extension records what you do on the sites you choose (pages, clicks, field changes, API calls,
 errors, and a screenshot when something worth seeing happens). This one file is everything else:
 
-  tabcam log [--since 30m] [--grep text] [--kind click,net]   read the timeline
-  tabcam shots [--since 1h]                                     list screenshots
-  tabcam mcp                                                    MCP server (stdio) so coding agents can read it
-  tabcam install [--chrome-id ID]                               register the native host with Firefox / Chrome
-  tabcam pack                                                   zip the extension for Firefox (dist/tabcam.xpi)
-  tabcam selftest                                               check writer, reader and MCP server
+  dashhound log [--since 30m] [--grep text] [--kind click,net]   read the timeline
+  dashhound shots [--since 1h]                                     list screenshots
+  dashhound mcp                                                    MCP server (stdio) so coding agents can read it
+  dashhound install [--chrome-id ID]                               register the native host with Firefox / Chrome
+  dashhound pack                                                   zip the extension for Firefox (dist/dashhound.xpi)
+  dashhound selftest                                               check writer, reader and MCP server
 
 When a browser starts it (native messaging), it is the host: it appends events to one JSON Lines file per hour
 under the data directory and deletes anything older than the configured hours. Nothing leaves the machine.
@@ -24,10 +24,10 @@ import tempfile
 import time
 import zipfile
 
-VERSION = "0.1.1"
-EXT_ID = "tabcam@tabcam"
+VERSION = "0.2.0"
+EXT_ID = "dashhound@dashhound"
 HERE = os.path.dirname(os.path.realpath(__file__))
-DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "tabcam")
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"), "dashhound")
 UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
 
 
@@ -161,7 +161,7 @@ TOOLS = [
     },
     {
         "name": "get_screenshot",
-        "description": "A screenshot tabcam took (the path comes from a 'shot' line in recent_activity).",
+        "description": "A screenshot dashhound took (the path comes from a 'shot' line in recent_activity).",
         "inputSchema": {"type": "object", "properties": {"file": {"type": "string"}}, "required": ["file"]},
     },
 ]
@@ -174,7 +174,7 @@ def call_tool(name, args):
     if name == "get_screenshot":
         path = os.path.realpath(args.get("file", ""))
         if not path.startswith(os.path.realpath(shots_dir()) + os.sep) or not os.path.isfile(path):
-            raise ValueError("not a tabcam screenshot")
+            raise ValueError("not a dashhound screenshot")
         with open(path, "rb") as f:
             return [{"type": "image", "data": base64.b64encode(f.read()).decode(), "mimeType": "image/jpeg"}]
     raise ValueError(f"unknown tool {name}")
@@ -187,7 +187,7 @@ def mcp_reply(req):
         return None
     if method == "initialize":
         result = {"protocolVersion": params.get("protocolVersion", "2025-06-18"), "capabilities": {"tools": {}},
-                  "serverInfo": {"name": "tabcam", "version": VERSION}}
+                  "serverInfo": {"name": "dashhound", "version": VERSION}}
     elif method == "tools/list":
         result = {"tools": TOOLS}
     elif method == "tools/call":
@@ -214,7 +214,7 @@ def mcp():
 
 
 def install(chrome_id=None):
-    """Registers this script as the `tabcam` native messaging host for Firefox (and Chrome when given its id)."""
+    """Registers this script as the `dashhound` native messaging host for Firefox (and Chrome when given its id)."""
     me = os.path.realpath(__file__)
     os.chmod(me, 0o755)
     mac = sys.platform == "darwin"
@@ -225,14 +225,14 @@ def install(chrome_id=None):
                         {"allowed_origins": [f"chrome-extension://{chrome_id}/"]}))
     for folder, allow in targets:
         os.makedirs(folder, exist_ok=True)
-        with open(os.path.join(folder, "tabcam.json"), "w") as f:
-            json.dump({"name": "tabcam", "description": "tabcam recorder", "path": me, "type": "stdio", **allow}, f, indent=2)
-        print(f"registered: {os.path.join(folder, 'tabcam.json')}")
+        with open(os.path.join(folder, "dashhound.json"), "w") as f:
+            json.dump({"name": "dashhound", "description": "dashhound recorder", "path": me, "type": "stdio", **allow}, f, indent=2)
+        print(f"registered: {os.path.join(folder, 'dashhound.json')}")
 
 
 def pack():
     os.makedirs(os.path.join(HERE, "dist"), exist_ok=True)
-    out = os.path.join(HERE, "dist", "tabcam.xpi")
+    out = os.path.join(HERE, "dist", "dashhound.xpi")
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for name in sorted(os.listdir(os.path.join(HERE, "extension"))):
             z.write(os.path.join(HERE, "extension", name), name)
@@ -275,7 +275,7 @@ def selftest():
 def main():
     if EXT_ID in sys.argv[1:] or any(a.startswith("chrome-extension://") for a in sys.argv[1:]):
         return host()
-    p = argparse.ArgumentParser(prog="tabcam", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(prog="dashhound", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("log", help="print the timeline")
     s.add_argument("--since", default="1h")
@@ -287,7 +287,7 @@ def main():
     sub.add_parser("mcp", help="MCP server on stdio")
     s = sub.add_parser("install", help="register the native host")
     s.add_argument("--chrome-id", help="the extension id Chrome shows after loading it unpacked")
-    sub.add_parser("pack", help="build dist/tabcam.xpi")
+    sub.add_parser("pack", help="build dist/dashhound.xpi")
     sub.add_parser("selftest")
     a = p.parse_args()
     if a.cmd == "log":
