@@ -1,0 +1,10 @@
+name: Idea
+description: Something dashhound should record, show, or do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help, and when would you use it?
+    validations:
+      required: true
