@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "dashhound",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A dashcam for your dev browser: a local log of what you did, for you and your coding agent.",
   "permissions": ["nativeMessaging", "storage", "tabs", "webRequest"],
   "host_permissions": ["<all_urls>"],
