@@ -5,13 +5,14 @@
 When something breaks, you, or your coding agent, can look back instead of trying to reproduce it.
 
 ```
-10:49:45 tab 27 click   'Add a credit memo' on /credit-memos/open
-10:49:47 tab 27 field   Search by invoice # = 'QA4631X' on /credit-memos/add
-10:49:47 tab 27 click   'QA4631X MEDLINE (TEST) $12.56' (mat-option) on /credit-memos/add
-10:49:59 tab 27 field   Credit total = '$2.00' on /credit-memos/add/2460
-10:50:02 tab 27 click   'Add credit memo' (button) on /credit-memos/add/2460
-10:50:03 tab 27 shot    clicked Add credit memo -> ~/.local/share/tabcam/shots/20260930-105003-27.jpg
-10:50:05 tab 27 net     POST 201 https://api.example.com/credit-memos
+14:02:11 tab 3 page    http://localhost:3000/cart  Your cart
+14:02:15 tab 3 field   Quantity = '0' on /cart
+14:02:18 tab 3 field   Promo code = 'SPRING' on /cart
+14:02:19 tab 3 click   'Apply' (button) on /cart
+14:02:19 tab 3 net     POST 422 http://localhost:3000/api/cart/promo
+14:02:20 tab 3 shot    HTTP 422 POST /api/cart/promo -> ~/.local/share/tabcam/shots/20260930-140220-3.jpg
+14:02:24 tab 3 click   'Checkout' (button) on /cart
+14:02:24 tab 3 console uncaught: TypeError: Cannot read properties of undefined (reading 'total')
 ```
 
 - **Local only.** Everything is written to `~/.local/share/tabcam` by a small local program. No account, no
