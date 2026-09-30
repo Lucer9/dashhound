@@ -1,0 +1,28 @@
+name: Bug report
+description: Something was recorded wrong, not recorded, or broke a page
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Firefox Developer Edition 158, Chrome 141, ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: dashhound version
+      description: From about:addons / chrome://extensions, or `./dashhound --help`
+  - type: textarea
+    id: log
+    attributes:
+      label: Log excerpt
+      description: "`./dashhound log --since 15m --json` around the problem. Secrets are redacted already, but please read it before posting."
+      render: json
