@@ -11,6 +11,7 @@ const DEFAULTS = {
   shots: true,
   bodies: true,
   maxBodyKB: 32,
+  privateKeys: '',
   keepHours: 24,
   maxMB: 500,
 };
@@ -21,6 +22,7 @@ const QUEUE_MAX = 500;
 
 let config = { ...DEFAULTS };
 let matchers = [];
+let extraKeys = [];
 let port = null;
 let lastShot = 0;
 const queue = [];
@@ -57,6 +59,7 @@ async function loadConfig() {
   config = { ...DEFAULTS, ...(await api.storage.local.get(Object.keys(DEFAULTS))) };
   const patterns = config.sites.map((s) => s.trim()).filter((s) => PATTERN.test(s));
   matchers = patterns.map(toRegExp);
+  extraKeys = compileKeys(config.privateKeys);
   await registerScripts(patterns);
   post({ config: { keepHours: config.keepHours, maxMB: config.maxMB } });
 }
@@ -108,8 +111,8 @@ api.runtime.onMessage.addListener((msg, sender) => {
   if (ev.kind === 'net') {
     const max = config.maxBodyKB * 1024;
     if (config.bodies) {
-      ev.req = redact(ev.req, max);
-      ev.res = redact(ev.res, max);
+      ev.req = redact(ev.req, max, extraKeys);
+      ev.res = redact(ev.res, max, extraKeys);
     } else {
       delete ev.req;
       delete ev.res;
