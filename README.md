@@ -48,6 +48,8 @@ The story behind it, and Dash the pixel hound: [carlosaguirre.workers.dev/work/d
 
 Shadow DOM is fine: clicks and fields inside open shadow roots are named from the real element.
 
+Iframes are recorded too, when the frame's own address is on your list as well as the tab's. Their events end with `[in frame <url>]`. Frames from other sites, such as payment widgets, are never recorded unless you list them.
+
 ## Install
 
 Needs Python 3.8+ (standard library only).
@@ -164,6 +166,7 @@ Checks: `./dashhound selftest` (writer, loop limits, reader, report, MCP) and `n
 
 - Screenshots need the tab to be the visible one in its window (browser rule).
 - Requests made by web workers and service workers are not seen (only the page's own `fetch`/XHR).
+- `about:blank` and `srcdoc` frames are not recorded, and a listed frame inside a page that is not listed is dropped.
 - Tabs that were open before a site was added to the list start recording after a reload.
 - `status` finds the running host with `ps`, so on systems without it (Windows) it reports the browser as "unknown".
 - Pausing stops what is recorded, not the page scripts: they stay injected on listed sites and simply have their events dropped.
