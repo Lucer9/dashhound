@@ -91,8 +91,8 @@ async function registerScripts(patterns) {
   await api.scripting.unregisterContentScripts().catch(() => {});
   if (!patterns.length) return;
   await api.scripting.registerContentScripts([
-    { id: 'dashhound-content', js: ['content.js'], matches: patterns, runAt: 'document_start' },
-    { id: 'dashhound-page', js: ['page.js'], matches: patterns, runAt: 'document_start', world: 'MAIN' },
+    { id: 'dashhound-content', js: ['content.js'], matches: patterns, allFrames: true, runAt: 'document_start' },
+    { id: 'dashhound-page', js: ['page.js'], matches: patterns, allFrames: true, runAt: 'document_start', world: 'MAIN' },
   ]).catch((e) => console.error('dashhound: could not register scripts', e));
 }
 
@@ -156,7 +156,9 @@ api.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   const tab = sender.tab;
   if (!msg || !msg.dashhound || !tab || !active(tab.url)) return;
+  if (sender.frameId && !recorded(sender.url)) return;
   const ev = msg.dashhound;
+  if (sender.frameId) ev.frame = sender.url;
   if (ev.kind === 'net') {
     const max = config.maxBodyKB * 1024;
     if (config.bodies) {

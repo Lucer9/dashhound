@@ -234,7 +234,8 @@ def line_of(e):
         what = f"{e.get('reason')} -> {e.get('file')}"
     else:
         what = json.dumps(e)
-    return f"{time.strftime('%H:%M:%S', time.localtime(e['ts'] / 1000))} tab {e.get('tab')} {k:<7} {what}"
+    frame = f"  [in frame {e['frame']}]" if e.get("frame") else ""
+    return f"{time.strftime('%H:%M:%S', time.localtime(e['ts'] / 1000))} tab {e.get('tab')} {k:<7} {what}{frame}"
 
 
 def timeline(since="30m", grep=None, kinds=None, limit=400, bodies=False, body_limit=2000):
@@ -437,6 +438,8 @@ def selftest():
     write({"event": {"ts": now + 3, "tab": 1, "kind": "net", "method": "POST", "url": "http://l/api/promo", "status": 422,
                      "req": '{"code":"SPRING"}', "res": '{"error":"promo expired"}'}}, state)
     assert "(sent 17B got 25B)" in timeline("5m", kinds=["net"])
+    write({"event": {"ts": now + 3, "tab": 1, "kind": "click", "text": "Pay", "path": "/embed", "frame": "http://l/embed"}}, state)
+    assert "[in frame http://l/embed]" in timeline("5m", kinds=["click"])
     assert events("5m", grep="promo expired")[0]["status"] == 422
     assert "got  {\"error\":\"promo expired\"}" in timeline("5m", kinds=["net"], bodies=True)
     withb = mcp_reply({"id": 6, "method": "tools/call", "params": {"name": "recent_activity", "arguments": {"since": "5m", "bodies": True}}})
